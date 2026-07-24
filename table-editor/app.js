@@ -1,4 +1,4 @@
-const SIZE = { width: 1161, height: 1121 };
+const SIZE = { width: 1161, height: 1601 };
 const STORAGE_KEY = '4k30-table-editor-v1';
 const TITLE_KEY = '4k30-table-editor-title-v1';
 const LAYOUT_KEY = '4k30-table-layout-v2';
@@ -15,7 +15,9 @@ const TABLE_DEFINITIONS = [
   { id:'f2m',name:'iq-f2m配置',x:640,y:410,width:320,height:120 },
   { id:'sensor',name:'Sensor定义',x:640,y:550,width:320,height:120 },
   { id:'gdc0',name:'main-iq-gdc0配置',x:0,y:680,width:480,height:441 },
-  { id:'gdc1',name:'main-iq-gdc1配置',x:520,y:680,width:480,height:441 }
+  { id:'gdc1',name:'main-iq-gdc1配置',x:520,y:680,width:480,height:441 },
+  { id:'subgdc0',name:'sub-iq-gdc0配置',x:0,y:1160,width:480,height:441,sourceId:'gdc0' },
+  { id:'subgdc1',name:'sub-iq-gdc1配置',x:520,y:1160,width:480,height:441,sourceId:'gdc1' }
 ];
 const SENSOR_CELL_KEY = '76:503';
 const FPP_CELL_KEY = '152:503';
@@ -83,7 +85,7 @@ const textFileModules = [
   { name:'Usecase 脚本',endpoint:'/api/usecase-script',layoutKey:SCRIPT_CODE_LAYOUT_KEY,panel:document.querySelector('#scriptCodePanel'),drag:document.querySelector('#scriptCodeDrag'),save:document.querySelector('#scriptCodeSave'),refresh:document.querySelector('#scriptCodeRefresh'),resize:document.querySelector('#scriptCodeResize'),title:document.querySelector('#scriptCodeName'),path:document.querySelector('#scriptCodePath'),code:document.querySelector('#scriptCode'),layout:{x:1175,y:620,width:520,height:520,baseX:1175,baseY:620,baseWidth:520,baseHeight:520},dirty:false,sourceLabel:''}
 ];
 const pipelineImageModule = {
-  panel:document.querySelector('#pipelineImagePanel'),drag:document.querySelector('#pipelineImageDrag'),save:document.querySelector('#pipelineImageSave'),refresh:document.querySelector('#pipelineImageRefresh'),resize:document.querySelector('#pipelineImageResize'),title:document.querySelector('#pipelineImageName'),path:document.querySelector('#pipelineImagePath'),image:document.querySelector('#pipelineImage'),status:document.querySelector('#pipelineImageStatus'),dirty:false,sourceLabel:'',layout:{x:1175,y:1180,width:900,height:260,baseX:1175,baseY:1180,baseWidth:900,baseHeight:260}
+  panel:document.querySelector('#pipelineImagePanel'),drag:document.querySelector('#pipelineImageDrag'),save:document.querySelector('#pipelineImageSave'),refresh:document.querySelector('#pipelineImageRefresh'),resize:document.querySelector('#pipelineImageResize'),title:document.querySelector('#pipelineImageName'),path:document.querySelector('#pipelineImagePath'),image:document.querySelector('#pipelineImage'),status:document.querySelector('#pipelineImageStatus'),dirty:false,sourceLabel:'',viewer:{scale:1,x:0,y:0,dragging:false,pointerX:0,pointerY:0},layout:{x:1175,y:1180,width:900,height:260,baseX:1175,baseY:1180,baseWidth:900,baseHeight:260}
 };
 const cells = [];
 let activeCell = null;
@@ -93,7 +95,7 @@ let freeModuleZIndex=20;
 
 const normalize = (value) => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 function coordinate(node, property) { const layout = node.firstElementChild; const raw = property === 'x' ? layout?.style.marginLeft : layout?.style.paddingTop; return Math.round(Number.parseFloat(raw || '0')); }
-const keyFor = (cell) => `${cell.x}:${cell.y}`;
+const keyFor = (cell) => `${cell.scope?`${cell.scope}:`:''}${cell.x}:${cell.y}`;
 function showToast(message) { clearTimeout(toastTimer); toast.textContent = message; toast.classList.add('visible'); toastTimer = setTimeout(() => toast.classList.remove('visible'), 1800); }
 function payloadFileName(payload,fallback='') { return payload?.name||String(payload?.path||'').split(/[\\/]/).pop()||fallback; }
 function bringFreeModuleToFront(panel) { panel.style.zIndex=String(++freeModuleZIndex); }
@@ -205,10 +207,42 @@ function addText(group,text,x,y,options={}) { const node=svgElement('text',{x,y,
 function addEditableDefinitionCell(parent,x,y,width,height,value,wrapChars=0) { const switchNode=svgElement('switch');const foreignObject=svgElement('foreignObject',{x:0,y:0,width:'100%',height:'100%'});const layout=document.createElementNS('http://www.w3.org/1999/xhtml','div');layout.setAttribute('style',`display:flex;align-items:center;justify-content:center;width:${width-2}px;height:1px;padding-top:${y+height/2}px;margin-left:${x+1}px;`);const box=document.createElementNS('http://www.w3.org/1999/xhtml','div');box.setAttribute('style','box-sizing:border-box;font-size:0;text-align:center;color:#000;');const editor=document.createElementNS('http://www.w3.org/1999/xhtml','div');editor.setAttribute('style','display:inline-block;width:100%;font-size:12px;font-family:Helvetica;line-height:1.2;white-space:normal;word-wrap:normal;');editor.textContent=value;box.append(editor);layout.append(box);foreignObject.append(layout);switchNode.append(foreignObject);const fallback=addText(switchNode,value,x+width/2,y+height/2+4,{size:12});if(wrapChars){fallback.dataset.wrapChars=String(wrapChars);fallback.dataset.centerY=String(y+height/2+4);fallback.dataset.lineHeight='12';updateFallback(fallback,value);}parent.append(switchNode); }
 function addSensorDefinition(svg) { if(svg.querySelector('[data-sensor-definition]'))return;const x=640,y=550,width=320,left=160,titleHeight=30,row1Height=45,row2Height=45;const container=svgElement('g',{'data-sensor-definition':'true','data-table-content':'sensor'}),group=svgElement('g');group.append(svgElement('rect',{x,y,width,height:titleHeight,fill:'#000',stroke:'#000'}));addText(group,'Sensor定义',x+width/2,y+20,{size:12,fill:'#fff',weight:'bold'});const row1Y=y+titleHeight,row2Y=row1Y+row1Height;group.append(svgElement('rect',{x,y:row1Y,width:left,height:row1Height,fill:'#ccc',stroke:'#000'}),svgElement('rect',{x:x+left,y:row1Y,width:width-left,height:row1Height,fill:'#fff',stroke:'#000'}),svgElement('rect',{x,y:row2Y,width:left,height:row2Height,fill:'#ccc',stroke:'#000'}),svgElement('rect',{x:x+left,y:row2Y,width:width-left,height:row2Height,fill:'#fff',stroke:'#000'}));addText(group,'ISP支持接入的bit位宽',x+left/2,row1Y+28,{size:12});addText(group,'常见的sensor类型',x+left/2,row2Y+28,{size:12});container.append(group);addEditableDefinitionCell(container,x+left,row1Y,width-left,row1Height,'10');addEditableDefinitionCell(container,x+left,row2Y,width-left,row2Height,'binning');svg.append(container); }
 function nodePoint(node) { const foreignObject=node.querySelector?.('foreignObject');if(foreignObject)return{x:coordinate(foreignObject,'x'),y:coordinate(foreignObject,'y')};try{const box=node.getBBox();return{x:box.x+box.width/2,y:box.y+box.height/2};}catch{return null;} }
-function setGdcTableTitle(group,definition) { const oldName=definition.id==='gdc0'?'iq-gdc0配置':'iq-gdc1配置';let title=[...group.querySelectorAll('text')].find(node=>node.textContent.replace(/\s+/g,'')===oldName);let header=group.querySelector('[data-gdc-title-background]');if(!header){header=svgElement('rect',{'data-gdc-title-background':'true'});group.append(header);}for(const [key,value] of Object.entries({x:definition.x,y:definition.y-1,width:definition.width,height:31,fill:'#000',stroke:'#000'}))header.setAttribute(key,String(value));if(!title)title=addText(group,definition.name,definition.x+definition.width/2,definition.y+20);title.textContent=definition.name;for(const [key,value] of Object.entries({x:definition.x+definition.width/2,y:definition.y+20,'text-anchor':'middle','font-family':'Helvetica','font-size':12,fill:'#fff','font-weight':'bold'}))title.setAttribute(key,String(value));group.append(title); }
-function prepareMovableTables(svg) { const root=svg.querySelector(':scope > g'),available=[...(root?.children||[])],assigned=new Set(),layouts=[];for(const definition of TABLE_DEFINITIONS){let group;if(definition.id==='sensor')group=svg.querySelector('[data-table-content="sensor"]');else{group=svgElement('g',{'data-table-content':definition.id});for(const node of available){if(assigned.has(node))continue;const point=nodePoint(node);if(point&&point.x>=definition.x&&point.x<=definition.x+definition.width&&point.y>=definition.y&&point.y<=definition.y+definition.height){assigned.add(node);group.append(node);}}root?.append(group);}if(group){const background=svgElement('rect',{x:definition.x,y:definition.y,width:definition.width,height:definition.height,fill:'#f8fafc',stroke:'none','data-layout-background':'true'});group.insertBefore(background,group.firstChild);if(definition.id==='gdc0'||definition.id==='gdc1')setGdcTableTitle(group,definition);layouts.push({...definition,baseX:definition.x,baseY:definition.y,baseWidth:definition.width,baseHeight:definition.height,element:group});}}return layouts; }
+function setGdcTableTitle(group,definition,geometry=definition) {
+  const oldName=definition.id.endsWith('0')?'iq-gdc0配置':'iq-gdc1配置';
+  let title=group.querySelector('[data-gdc-title-text]')||[...group.querySelectorAll('text')].find(node=>node.textContent.replace(/\s+/g,'')===oldName);
+  let header=group.querySelector('[data-gdc-title-background]');
+  if(!header){header=svgElement('rect',{'data-gdc-title-background':'true'});group.append(header);}
+  for(const [key,value] of Object.entries({x:geometry.x,y:geometry.y-1,width:geometry.width,height:31,fill:'#000',stroke:'#000'}))header.setAttribute(key,String(value));
+  if(!title)title=addText(group,definition.name,geometry.x+geometry.width/2,geometry.y+20);
+  title.dataset.gdcTitleText='true';title.textContent=definition.name;
+  for(const [key,value] of Object.entries({x:geometry.x+geometry.width/2,y:geometry.y+20,'text-anchor':'middle','font-family':'Helvetica','font-size':12,fill:'#fff','font-weight':'bold'}))title.setAttribute(key,String(value));
+  group.append(title);
+}
+function prepareMovableTables(svg) {
+  const root=svg.querySelector(':scope > g'),available=[...(root?.children||[])],assigned=new Set(),layouts=[];
+  for(const definition of TABLE_DEFINITIONS.filter(item=>!item.sourceId)){
+    let group;
+    if(definition.id==='sensor')group=svg.querySelector('[data-table-content="sensor"]');
+    else{
+      group=svgElement('g',{'data-table-content':definition.id});
+      for(const node of available){if(assigned.has(node))continue;const point=nodePoint(node);if(point&&point.x>=definition.x&&point.x<=definition.x+definition.width&&point.y>=definition.y&&point.y<=definition.y+definition.height){assigned.add(node);group.append(node);}}
+      root?.append(group);
+    }
+    if(!group)continue;
+    const background=svgElement('rect',{x:definition.x,y:definition.y,width:definition.width,height:definition.height,fill:'#f8fafc',stroke:'none','data-layout-background':'true'});group.insertBefore(background,group.firstChild);
+    if(definition.id==='gdc0'||definition.id==='gdc1')setGdcTableTitle(group,definition);
+    layouts.push({...definition,defaultX:definition.x,defaultY:definition.y,baseX:definition.x,baseY:definition.y,baseWidth:definition.width,baseHeight:definition.height,element:group});
+  }
+  for(const definition of TABLE_DEFINITIONS.filter(item=>item.sourceId)){
+    const source=layouts.find(layout=>layout.id===definition.sourceId);if(!source)continue;
+    const group=source.element.cloneNode(true),geometry={x:source.baseX,y:source.baseY,width:source.baseWidth,height:source.baseHeight};
+    group.dataset.tableContent=definition.id;setGdcTableTitle(group,definition,geometry);root?.append(group);
+    layouts.push({...definition,defaultX:definition.x,defaultY:definition.y,baseX:geometry.x,baseY:geometry.y,baseWidth:geometry.width,baseHeight:geometry.height,element:group});
+  }
+  return layouts;
+}
 function readLayouts() { try{return JSON.parse(localStorage.getItem(LAYOUT_KEY))||{};}catch{return{};} }
-function saveLayouts() { localStorage.setItem(LAYOUT_KEY,JSON.stringify(Object.fromEntries(tableLayouts.map(layout=>[layout.id,{x:layout.x,y:layout.y,width:layout.width,height:layout.height,...(layout.id==='sensor'?{compactVersion:SENSOR_LAYOUT_VERSION}:{}),...((layout.id==='gdc0'||layout.id==='gdc1')?{headerVersion:GDC_HEADER_LAYOUT_VERSION}:{})}])))); }
+function saveLayouts() { localStorage.setItem(LAYOUT_KEY,JSON.stringify(Object.fromEntries(tableLayouts.map(layout=>[layout.id,{x:layout.x,y:layout.y,width:layout.width,height:layout.height,...(layout.id==='sensor'?{compactVersion:SENSOR_LAYOUT_VERSION}:{}),...(layout.id.includes('gdc')?{headerVersion:GDC_HEADER_LAYOUT_VERSION}:{})}])))); }
 function renderTableLayout(layout) { const scaleX=layout.width/layout.baseWidth,scaleY=layout.height/layout.baseHeight;layout.element.setAttribute('transform',`translate(${layout.x} ${layout.y}) scale(${scaleX} ${scaleY}) translate(${-layout.baseX} ${-layout.baseY})`);layout.frame.style.left=`${layout.x}px`;layout.frame.style.top=`${layout.y}px`;layout.frame.style.width=`${layout.width}px`;layout.frame.style.height=`${layout.height}px`; }
 function activateFrame(frame) { for(const node of tableControls.querySelectorAll('.table-frame')){const active=node===frame;node.classList.toggle('active',active);node.setAttribute('aria-selected',String(active));} }
 function beginLayoutPointer(event,layout,mode) { event.preventDefault();event.stopPropagation();closeMenu();activateFrame(layout.frame);const start={x:event.clientX,y:event.clientY,layoutX:layout.x,layoutY:layout.y,width:layout.width,height:layout.height};document.body.classList.add(mode==='move'?'layout-dragging':'layout-resizing');const move=(next)=>{const dx=(next.clientX-start.x)/view.scale,dy=(next.clientY-start.y)/view.scale;if(mode==='move'){layout.x=start.layoutX+dx;layout.y=start.layoutY+dy;}else{layout.width=Math.max(120,start.width+dx);layout.height=Math.max(70,start.height+dy);}renderTableLayout(layout);};const finish=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.body.classList.remove('layout-dragging','layout-resizing');saveLayouts();};document.addEventListener('pointermove',move);document.addEventListener('pointerup',finish); }
@@ -216,8 +250,8 @@ function initializeTableControls() {
   const saved=readLayouts();let migrated=false;tableControls.replaceChildren();
   for(const layout of tableLayouts){
     const state=saved[layout.id]||{},isGdc=layout.id==='gdc0'||layout.id==='gdc1',legacyGdc=isGdc&&Number.isFinite(state.y)&&state.headerVersion!==GDC_HEADER_LAYOUT_VERSION,legacyScale=legacyGdc&&Number.isFinite(state.height)?state.height/411:1;
-    layout.x=Number.isFinite(state.x)?state.x:layout.baseX;
-    layout.y=legacyGdc?state.y-30*legacyScale:(Number.isFinite(state.y)?state.y:layout.baseY);
+    layout.x=Number.isFinite(state.x)?state.x:layout.defaultX;
+    layout.y=legacyGdc?state.y-30*legacyScale:(Number.isFinite(state.y)?state.y:layout.defaultY);
     const compactSensor=layout.id==='sensor'&&state.compactVersion!==SENSOR_LAYOUT_VERSION;if(compactSensor||legacyGdc)migrated=true;
     layout.width=compactSensor?layout.baseWidth:(Number.isFinite(state.width)?state.width:layout.baseWidth);
     const legacyResolution=layout.id==='resolution'&&state.height===270;
@@ -226,7 +260,7 @@ function initializeTableControls() {
   }
   if(migrated)saveLayouts();
 }
-function resetTableLayouts() { localStorage.removeItem(LAYOUT_KEY);for(const layout of tableLayouts){layout.x=layout.baseX;layout.y=layout.baseY;layout.width=layout.baseWidth;layout.height=layout.baseHeight;renderTableLayout(layout);} }
+function resetTableLayouts() { localStorage.removeItem(LAYOUT_KEY);for(const layout of tableLayouts){layout.x=layout.defaultX;layout.y=layout.defaultY;layout.width=layout.baseWidth;layout.height=layout.baseHeight;renderTableLayout(layout);} }
 function readF2mTriggerLayout() { try{return JSON.parse(localStorage.getItem(F2M_TRIGGER_LAYOUT_KEY))||{};}catch{return{};} }
 function renderF2mTriggerLayout() { f2mTriggerControl.style.left=`${f2mTriggerLayout.x}px`;f2mTriggerControl.style.top=`${f2mTriggerLayout.y}px`; }
 function saveF2mTriggerLayout() { localStorage.setItem(F2M_TRIGGER_LAYOUT_KEY,JSON.stringify({x:f2mTriggerLayout.x,y:f2mTriggerLayout.y})); }
@@ -248,13 +282,27 @@ async function loadPipelineImage() {
 }
 function setPipelineImageDirty(dirty) { const module=pipelineImageModule;module.dirty=dirty;module.panel.classList.toggle('dirty',dirty);module.save.disabled=!dirty;module.path.textContent=`${module.sourceLabel}${dirty?' · 未保存':''}`; }
 async function savePipelineImageName() { const module=pipelineImageModule,filename=module.title.innerText.trim();module.save.disabled=true;try{const response=await fetch('/api/pipeline-diagram-info',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename})}),payload=await response.json();if(!response.ok)throw new Error(payload.error||'保存文件名失败');module.title.textContent=payloadFileName(payload,filename);module.sourceLabel=`${payload.path} · ${payload.modified_at}`;module.path.title=payload.path;setPipelineImageDirty(false);showToast('流程图文件名已保存');}catch(error){setPipelineImageDirty(true);showToast(error.message);} }
+function renderPipelineViewer() { const module=pipelineImageModule,{scale,x,y}=module.viewer;module.image.style.transform=`translate(${x}px,${y}px) scale(${scale})`; }
+function resetPipelineViewer() { const module=pipelineImageModule;Object.assign(module.viewer,{scale:1,x:0,y:0,dragging:false});module.image.classList.remove('viewer-dragging');renderPipelineViewer(); }
+function zoomPipelineViewer(event) {
+  const module=pipelineImageModule;if(document.fullscreenElement!==module.image)return;
+  event.preventDefault();event.stopPropagation();const viewer=module.viewer,oldScale=viewer.scale,newScale=Math.min(10,Math.max(1,oldScale*Math.exp(-event.deltaY*.0015)));if(newScale===oldScale)return;
+  const rect=module.image.getBoundingClientRect(),centerX=rect.left+rect.width/2,centerY=rect.top+rect.height/2,ratio=newScale/oldScale;
+  viewer.x=event.clientX-centerX-(event.clientX-centerX-viewer.x)*ratio;viewer.y=event.clientY-centerY-(event.clientY-centerY-viewer.y)*ratio;viewer.scale=newScale;renderPipelineViewer();
+}
+function beginPipelineViewerDrag(event) {
+  const module=pipelineImageModule,viewer=module.viewer;if(document.fullscreenElement!==module.image||event.button!==0||viewer.scale<=1)return;
+  event.preventDefault();viewer.dragging=true;viewer.pointerX=event.clientX;viewer.pointerY=event.clientY;module.image.classList.add('viewer-dragging');module.image.setPointerCapture(event.pointerId);
+}
+function movePipelineViewer(event) { const module=pipelineImageModule,viewer=module.viewer;if(!viewer.dragging)return;viewer.x+=event.clientX-viewer.pointerX;viewer.y+=event.clientY-viewer.pointerY;viewer.pointerX=event.clientX;viewer.pointerY=event.clientY;renderPipelineViewer(); }
+function stopPipelineViewerDrag(event) { const module=pipelineImageModule,viewer=module.viewer;if(!viewer.dragging)return;viewer.dragging=false;module.image.classList.remove('viewer-dragging');if(module.image.hasPointerCapture(event.pointerId))module.image.releasePointerCapture(event.pointerId); }
 function initializePipelineImageModule() {
   const module=pipelineImageModule,saved=readPipelineImageLayout(),layout=module.layout;layout.x=Number.isFinite(saved.x)?saved.x:layout.baseX;layout.y=Number.isFinite(saved.y)?saved.y:layout.baseY;layout.width=Number.isFinite(saved.width)?saved.width:layout.baseWidth;layout.height=Number.isFinite(saved.height)?saved.height:layout.baseHeight;renderPipelineImageLayout();
   module.panel.addEventListener('pointerdown',()=>bringFreeModuleToFront(module.panel),true);
   module.panel.addEventListener('pointerdown',(event)=>event.stopPropagation());
   module.drag.addEventListener('pointerdown',(event)=>{event.preventDefault();event.stopPropagation();activateFrame(null);closeMenu();const start={clientX:event.clientX,clientY:event.clientY,x:layout.x,y:layout.y};document.body.classList.add('layout-dragging');const move=(next)=>{layout.x=start.x+(next.clientX-start.clientX)/view.scale;layout.y=start.y+(next.clientY-start.clientY)/view.scale;renderPipelineImageLayout();};const finish=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.body.classList.remove('layout-dragging');savePipelineImageLayout();};document.addEventListener('pointermove',move);document.addEventListener('pointerup',finish);});
   module.resize.addEventListener('pointerdown',(event)=>{event.preventDefault();event.stopPropagation();const start={clientX:event.clientX,clientY:event.clientY,width:layout.width,height:layout.height};document.body.classList.add('layout-resizing');const move=(next)=>{layout.width=Math.max(360,start.width+(next.clientX-start.clientX)/view.scale);layout.height=Math.max(140,start.height+(next.clientY-start.clientY)/view.scale);renderPipelineImageLayout();};const finish=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.body.classList.remove('layout-resizing');savePipelineImageLayout();};document.addEventListener('pointermove',move);document.addEventListener('pointerup',finish);});
-  for(const control of [module.save,module.refresh,module.title,module.image])control.addEventListener('pointerdown',(event)=>event.stopPropagation());module.title.addEventListener('input',()=>setPipelineImageDirty(true));module.title.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();module.title.blur();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(module.dirty)savePipelineImageName();}});module.save.addEventListener('click',(event)=>{event.stopPropagation();savePipelineImageName();});module.refresh.addEventListener('click',(event)=>{event.stopPropagation();loadPipelineImage();});module.image.addEventListener('dblclick',()=>{if(module.image.requestFullscreen)module.image.requestFullscreen();});loadPipelineImage();
+  for(const control of [module.save,module.refresh,module.title,module.image])control.addEventListener('pointerdown',(event)=>event.stopPropagation());module.title.addEventListener('input',()=>setPipelineImageDirty(true));module.title.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();module.title.blur();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(module.dirty)savePipelineImageName();}});module.save.addEventListener('click',(event)=>{event.stopPropagation();savePipelineImageName();});module.refresh.addEventListener('click',(event)=>{event.stopPropagation();loadPipelineImage();});module.image.addEventListener('dblclick',()=>{if(document.fullscreenElement!==module.image&&module.image.requestFullscreen){resetPipelineViewer();module.image.requestFullscreen();}});module.image.addEventListener('wheel',zoomPipelineViewer,{passive:false});module.image.addEventListener('pointerdown',beginPipelineViewerDrag);module.image.addEventListener('pointermove',movePipelineViewer);module.image.addEventListener('pointerup',stopPipelineViewerDrag);module.image.addEventListener('pointercancel',stopPipelineViewerDrag);document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement!==module.image)resetPipelineViewer();});loadPipelineImage();
 }
 function setTextFileDirty(module,dirty) { module.dirty=dirty;module.panel.classList.toggle('dirty',dirty);module.save.disabled=!dirty;module.path.textContent=`${module.sourceLabel}${dirty?' · 未保存':''}`; }
 async function loadTextFileModule(module,confirmDiscard=true) {
@@ -281,8 +329,8 @@ function initializeTextFileModule(module) {
 function initializeTextFileModules() { for(const module of textFileModules)initializeTextFileModule(module); }
 function bindCells(svg) {
   cells.length=0; const draft=readDraft();
-  for(const foreignObject of svg.querySelectorAll('foreignObject')) { const x=coordinate(foreignObject,'x'),y=coordinate(foreignObject,'y'); if(y<TABLE_START_Y)continue; const editor=foreignObject.querySelector('div > div > div'); if(!editor)continue; const fallback=foreignObject.closest('switch')?.querySelector('text')||null, defaultValue=normalize(editor.innerText); const cell={x,y,editor,fallback,foreignObject,defaultValue,value:defaultValue,config:null,partValues:null}; cells.push(cell); foreignObject.classList.add('editable-cell'); editor.contentEditable='true'; editor.tabIndex=0; editor.spellcheck=false; editor.setAttribute('role','textbox'); editor.setAttribute('aria-label',`编辑表格单元格：${defaultValue||`${x},${y}`}`); editor.addEventListener('pointerdown',(event)=>{if(editor.getAttribute('contenteditable')==='true'){event.stopPropagation();editor.focus();}}); const saved=draft[keyFor(cell)]; if(typeof saved==='string')updateCell(cell,saved,false); editor.addEventListener('input',()=>captureCellInput(cell)); editor.addEventListener('keydown',(event)=>{ if(event.key==='Tab'){event.preventDefault();moveCell(cell,event.shiftKey?-1:1);} else if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();editor.blur();} else if(event.key==='Escape')editor.blur(); else if(cell.config&&(event.key==='ArrowDown'||event.key===' ')){event.preventDefault();openMenu(cell);} }); }
-  cells.sort((a,b)=>a.y-b.y||a.x-b.x); cells.forEach(configureCell); configureResolutionRules(); saveStatus.textContent=Object.keys(draft).length?'已恢复本地表格':'表格自动保存';
+  for(const foreignObject of svg.querySelectorAll('foreignObject')) { const x=coordinate(foreignObject,'x'),y=coordinate(foreignObject,'y'); if(y<TABLE_START_Y)continue; const editor=foreignObject.querySelector('div > div > div'); if(!editor)continue; const fallback=foreignObject.closest('switch')?.querySelector('text')||null,defaultValue=normalize(editor.innerText),tableId=foreignObject.closest('[data-table-content]')?.dataset.tableContent||'',scope=tableId.startsWith('subgdc')?tableId:'',layout=scope?tableLayouts.find(item=>item.id===scope):null,sortY=y+(layout?layout.defaultY-layout.baseY:0); const cell={x,y,sortY,scope,editor,fallback,foreignObject,defaultValue,value:defaultValue,config:null,partValues:null}; cells.push(cell); foreignObject.classList.add('editable-cell'); editor.contentEditable='true'; editor.tabIndex=0; editor.spellcheck=false; editor.setAttribute('role','textbox'); editor.setAttribute('aria-label',`编辑${scope?'sub ':''}表格单元格：${defaultValue||`${x},${y}`}`); editor.addEventListener('pointerdown',(event)=>{if(editor.getAttribute('contenteditable')==='true'){event.stopPropagation();editor.focus();}}); const saved=draft[keyFor(cell)]; if(typeof saved==='string')updateCell(cell,saved,false); editor.addEventListener('input',()=>captureCellInput(cell)); editor.addEventListener('keydown',(event)=>{ if(event.key==='Tab'){event.preventDefault();moveCell(cell,event.shiftKey?-1:1);} else if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();editor.blur();} else if(event.key==='Escape')editor.blur(); else if(cell.config&&(event.key==='ArrowDown'||event.key===' ')){event.preventDefault();openMenu(cell);} }); }
+  cells.sort((a,b)=>a.sortY-b.sortY||a.x-b.x); cells.forEach(configureCell); configureResolutionRules(); saveStatus.textContent=Object.keys(draft).length?'已恢复本地表格':'表格自动保存';
 }
 function resetTable() { for(const cell of cells){ updateCell(cell,cell.defaultValue,false); if(cell.config)normalizeConfiguredCell(cell); } calculateResolutionRules(false);resetTableLayouts();resetF2mTriggerLayout();resetTextFileLayouts();resetPipelineImageLayout();saveDraft();showToast('表格内容和布局已恢复默认值'); }
 function exportBounds() { const padding=20,minX=Math.min(...tableLayouts.map(layout=>layout.x))-padding,minY=Math.min(...tableLayouts.map(layout=>layout.y))-padding,maxX=Math.max(...tableLayouts.map(layout=>layout.x+layout.width))+padding,maxY=Math.max(...tableLayouts.map(layout=>layout.y+layout.height))+padding;return{x:minX,y:minY,width:maxX-minX,height:maxY-minY}; }
