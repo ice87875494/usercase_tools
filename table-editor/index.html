@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f7f9">
+  <title>4K30 Normal Preview</title>
+  <link rel="stylesheet" href="styles.css?v=20260724-28">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="status-dot" aria-hidden="true"></span>
+      <div>
+        <h1 id="pageTitle" contenteditable="true" spellcheck="false" aria-label="编辑页面标题">4K30 Normal Preview</h1>
+        <p id="saveStatus">表格自动保存</p>
+      </div>
+    </div>
+    <nav class="toolbar" aria-label="表格与画布工具">
+      <button id="resetTable" class="tool-button" type="button" title="恢复表格默认值"><span class="reset-icon" aria-hidden="true"></span><span>复位</span></button>
+      <span class="divider" aria-hidden="true"></span>
+      <button id="zoomOut" class="icon-button" type="button" title="缩小" aria-label="缩小">−</button>
+      <output id="zoomValue" class="zoom-value" aria-live="polite">100%</output>
+      <button id="zoomIn" class="icon-button" type="button" title="放大" aria-label="放大">+</button>
+      <button id="fitView" class="icon-button" type="button" title="适配窗口" aria-label="适配窗口"><span class="fit-icon" aria-hidden="true"></span></button>
+      <button id="fullscreen" class="icon-button" type="button" title="全屏" aria-label="全屏"><span class="fullscreen-icon" aria-hidden="true"></span></button>
+      <span class="divider" aria-hidden="true"></span>
+      <button id="exportPng" class="tool-button primary" type="button" title="导出 PNG"><span class="download-icon" aria-hidden="true"></span><span>导出图片</span></button>
+    </nav>
+  </header>
+  <main id="viewport" class="viewport" aria-label="流程表格编辑区">
+    <div id="stage" class="stage">
+      <div id="diagram" role="img" aria-label="4K30 流程图和配置表格"></div>
+      <div id="tableControls" class="table-controls" aria-label="表格布局控制"></div>
+      <div id="f2mTriggerControl" class="f2m-trigger-control">
+        <button id="f2mTriggerDrag" class="f2m-trigger-drag" type="button" title="拖动计算按钮" aria-label="拖动触发iq-f2m配置计算按钮"><span aria-hidden="true"></span></button>
+        <button id="f2mTrigger" class="f2m-trigger-button" type="button">触发iq-f2m配置计算</button>
+      </div>
+      <section id="imcCodePanel" class="code-file-panel" aria-label="imcoverridesettings.txt 代码框">
+        <header>
+          <button id="imcCodeDrag" class="code-file-drag" type="button" title="拖动代码框" aria-label="拖动 imcoverridesettings.txt 代码框"><span aria-hidden="true"></span></button>
+          <div class="code-file-title">
+            <strong>imcoverridesettings.txt</strong>
+            <span id="imcCodePath">正在读取...</span>
+          </div>
+          <button id="imcCodeSave" class="code-file-save" type="button" title="保存文件" aria-label="保存 imcoverridesettings.txt" disabled><span class="save-file-icon" aria-hidden="true"></span></button>
+          <button id="imcCodeRefresh" class="code-file-refresh" type="button" title="刷新文件内容" aria-label="刷新 imcoverridesettings.txt">↻</button>
+        </header>
+        <pre id="imcCode" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑 imcoverridesettings.txt">正在读取...</pre>
+        <button id="imcCodeResize" class="code-file-resize" type="button" title="调整代码框大小" aria-label="调整 imcoverridesettings.txt 代码框大小"></button>
+      </section>
+      <section id="scriptCodePanel" class="code-file-panel" aria-label="Usecase 脚本代码框">
+        <header>
+          <button id="scriptCodeDrag" class="code-file-drag" type="button" title="拖动代码框" aria-label="拖动 Usecase 脚本代码框"><span aria-hidden="true"></span></button>
+          <div class="code-file-title">
+            <strong>3840x2176_30_ainr_yuvflow_eis_on_c10_sensormode42.sh</strong>
+            <span id="scriptCodePath">正在读取...</span>
+          </div>
+          <button id="scriptCodeSave" class="code-file-save" type="button" title="保存文件" aria-label="保存 Usecase 脚本" disabled><span class="save-file-icon" aria-hidden="true"></span></button>
+          <button id="scriptCodeRefresh" class="code-file-refresh" type="button" title="刷新文件内容" aria-label="刷新 Usecase 脚本">↻</button>
+        </header>
+        <pre id="scriptCode" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑 Usecase 脚本">正在读取...</pre>
+        <button id="scriptCodeResize" class="code-file-resize" type="button" title="调整代码框大小" aria-label="调整 Usecase 脚本代码框大小"></button>
+      </section>
+      <section id="pipelineImagePanel" class="image-file-panel" aria-label="imcmctfnnnoainrpipeline.svg 流程图模块">
+        <header>
+          <button id="pipelineImageDrag" class="image-file-drag" type="button" title="拖动流程图模块" aria-label="拖动 imcmctfnnnoainrpipeline.svg 流程图模块"><span aria-hidden="true"></span></button>
+          <div class="image-file-title">
+            <strong>imcmctfnnnoainrpipeline.svg</strong>
+            <span id="pipelineImagePath">正在读取...</span>
+          </div>
+          <button id="pipelineImageRefresh" class="image-file-refresh" type="button" title="刷新流程图" aria-label="刷新 imcmctfnnnoainrpipeline.svg">↻</button>
+        </header>
+        <div class="image-file-canvas">
+          <img id="pipelineImage" alt="mctfnnnoainr pipeline 流程图">
+          <p id="pipelineImageStatus" role="status">正在读取...</p>
+        </div>
+        <button id="pipelineImageResize" class="image-file-resize" type="button" title="调整流程图模块大小" aria-label="调整 imcmctfnnnoainrpipeline.svg 流程图模块大小"></button>
+      </section>
+    </div>
+    <div class="canvas-hint">点击表格单元格编辑 · Tab 切换单元格 · 空白处拖动画布</div>
+  </main>
+  <div id="fieldMenu" class="field-menu" role="dialog" aria-label="单元格选项" hidden></div>
+  <dialog id="f2mLogDialog" class="f2m-log-dialog" aria-labelledby="f2mLogTitle">
+    <header>
+      <h2 id="f2mLogTitle">iq-f2m 计算日志</h2>
+      <button id="f2mLogClose" type="button" title="关闭日志" aria-label="关闭日志">×</button>
+    </header>
+    <pre id="f2mLog" aria-live="polite"></pre>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js?v=20260724-28"></script>
+</body>
+</html>

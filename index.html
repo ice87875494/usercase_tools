@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f7f9">
+  <title>Pipeline 末页生成工具</title>
+  <link rel="stylesheet" href="styles.css?v=20260723-final">
+</head>
+<body>
+  <header class="topbar">
+    <button id="togglePanel" class="icon-button mobile-only" type="button" title="显示配置面板" aria-label="显示配置面板"><span class="menu-icon" aria-hidden="true"></span></button>
+    <div class="brand"><span class="status-dot" aria-hidden="true"></span><div><h1 id="pageTitle" contenteditable="true" spellcheck="false" aria-label="编辑页面标题">4K30 Normal Preview</h1><p id="saveStatus">本地自动保存</p></div></div>
+    <nav class="toolbar" aria-label="文件与画布工具">
+      <button id="resetTable" class="tool-button" type="button" title="恢复模板默认值"><span class="reset-icon" aria-hidden="true"></span><span>重置</span></button>
+      <button id="importJson" class="tool-button" type="button" title="导入 JSON 配置"><span class="upload-icon" aria-hidden="true"></span><span>导入</span></button>
+      <button id="exportJson" class="tool-button" type="button" title="导出 JSON 配置"><span class="code-icon" aria-hidden="true">{ }</span><span>JSON</span></button>
+      <span class="divider" aria-hidden="true"></span>
+      <button id="zoomOut" class="icon-button" type="button" title="缩小" aria-label="缩小">−</button><output id="zoomValue" class="zoom-value" aria-live="polite">100%</output><button id="zoomIn" class="icon-button" type="button" title="放大" aria-label="放大">+</button>
+      <button id="fitView" class="icon-button" type="button" title="适配窗口" aria-label="适配窗口"><span class="fit-icon" aria-hidden="true"></span></button>
+      <button id="fullscreen" class="icon-button" type="button" title="全屏" aria-label="全屏"><span class="fullscreen-icon" aria-hidden="true"></span></button>
+      <span class="divider" aria-hidden="true"></span>
+      <button id="exportPng" class="tool-button" type="button" title="导出 2 倍分辨率 PNG"><span class="download-icon" aria-hidden="true"></span><span>PNG</span></button>
+      <button id="exportPdf" class="tool-button primary" type="button" title="导出单页 PDF"><span class="document-icon" aria-hidden="true"></span><span>PDF</span></button>
+      <input id="fileInput" type="file" accept="application/json,.json" hidden>
+    </nav>
+  </header>
+  <div class="workspace">
+    <aside id="configPanel" class="config-panel" aria-label="配置面板">
+      <div class="panel-heading"><div><h2>内容配置</h2><p><span id="fieldCount">0</span> 个可编辑字段</p></div><button id="closePanel" class="icon-button mobile-only" type="button" title="关闭配置面板" aria-label="关闭配置面板">×</button></div>
+      <label class="title-field"><span>页面标题</span><input id="documentTitle" type="text" maxlength="120" autocomplete="off"></label>
+      <label class="search-box"><span class="search-icon" aria-hidden="true"></span><input id="fieldSearch" type="search" placeholder="搜索字段或内容" autocomplete="off"><button id="clearSearch" type="button" title="清除搜索" aria-label="清除搜索">×</button></label>
+      <div id="importErrors" class="error-message" role="alert" hidden></div>
+      <div id="fieldGroups" class="field-groups"></div><div id="emptySearch" class="empty-state" hidden>没有匹配的字段</div>
+    </aside>
+    <main id="viewport" class="viewport" aria-label="Pipeline 预览区"><div id="stage" class="stage"><div id="diagram" role="img" aria-label="4K30 Pipeline 图和配置表"></div></div><div class="canvas-hint">滚轮缩放 · 拖拽移动 · 点击文字直接编辑</div></main>
+  </div>
+  <div id="fieldMenu" class="field-menu" role="listbox" hidden></div><div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js?v=20260723-final"></script>
+</body>
+</html>
