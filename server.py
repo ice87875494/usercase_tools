@@ -37,6 +37,33 @@ EDITABLE_FILES = {
     "/api/usecase-script": USECASE_SCRIPT,
 }
 RESULT_PATTERN = re.compile(r"^(d1|d2|d4):\s*\[([^\]]+)\]\s*$", re.MULTILINE)
+INVALID_FILENAME_PATTERN = re.compile(r'[<>:"/\\|?*]')
+
+
+def renamed_file(source_file, filename):
+    if not isinstance(filename, str):
+        raise ValueError("文件名必须是文本")
+    filename = filename.strip()
+    if (
+        not filename
+        or filename in {".", ".."}
+        or Path(filename).name != filename
+        or INVALID_FILENAME_PATTERN.search(filename)
+        or filename.endswith((" ", "."))
+    ):
+        raise ValueError("文件名无效")
+    if Path(filename).suffix.lower() != source_file.suffix.lower():
+        raise ValueError(f"文件扩展名必须保持为 {source_file.suffix}")
+    return source_file.with_name(filename)
+
+
+def file_payload(source_file):
+    stat = source_file.stat()
+    return {
+        "name": source_file.name,
+        "path": str(source_file),
+        "modified_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
+    }
 
 
 class AppHandler(SimpleHTTPRequestHandler):
@@ -60,8 +87,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 {
                     "ok": True,
                     "script": str(F2M_SCRIPT),
-                    "imc_settings": str(IMC_SETTINGS),
-                    "usecase_script": str(USECASE_SCRIPT),
+                    "imc_settings": str(EDITABLE_FILES["/api/imc-overrides"]),
+                    "usecase_script": str(EDITABLE_FILES["/api/usecase-script"]),
                     "pipeline_diagram": str(PIPELINE_DIAGRAM),
                 },
             )
@@ -70,14 +97,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not PIPELINE_DIAGRAM.is_file():
                 self.send_json(404, {"error": f"找不到文件：{PIPELINE_DIAGRAM}"})
                 return
-            stat = PIPELINE_DIAGRAM.stat()
-            self.send_json(
-                200,
-                {
-                    "path": str(PIPELINE_DIAGRAM),
-                    "modified_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
-                },
-            )
+            self.send_json(200, file_payload(PIPELINE_DIAGRAM))
             return
         if request_path == "/api/pipeline-diagram.svg":
             if not PIPELINE_DIAGRAM.is_file():
@@ -103,20 +123,34 @@ class AppHandler(SimpleHTTPRequestHandler):
                 content = source_file.read_text(encoding="utf-8-sig")
             except UnicodeDecodeError:
                 content = source_file.read_text(encoding="gb18030")
-            stat = source_file.stat()
-            self.send_json(
-                200,
-                {
-                    "path": str(source_file),
-                    "content": content,
-                    "modified_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
-                },
-            )
+            self.send_json(200, {**file_payload(source_file), "content": content})
             return
         super().do_GET()
 
     def do_PUT(self):
+        global PIPELINE_DIAGRAM
         request_path = urlparse(self.path).path
+        if request_path == "/api/pipeline-diagram-info":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 4096:
+                    raise ValueError("请求体大小无效")
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                target_file = renamed_file(PIPELINE_DIAGRAM, payload["filename"])
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc) or "文件名无效"})
+                return
+            if target_file != PIPELINE_DIAGRAM and target_file.exists():
+                self.send_json(409, {"error": f"目标文件已存在：{target_file}"})
+                return
+            try:
+                if target_file != PIPELINE_DIAGRAM:
+                    PIPELINE_DIAGRAM.rename(target_file)
+                    PIPELINE_DIAGRAM = target_file
+                self.send_json(200, file_payload(PIPELINE_DIAGRAM))
+            except OSError as exc:
+                self.send_json(500, {"error": f"重命名图片失败：{exc}"})
+            return
         source_file = EDITABLE_FILES.get(request_path)
         if not source_file:
             self.send_json(404, {"error": "API not found"})
@@ -129,29 +163,29 @@ class AppHandler(SimpleHTTPRequestHandler):
             content = payload["content"]
             if not isinstance(content, str):
                 raise ValueError("文件内容必须是文本")
+            target_file = renamed_file(source_file, payload.get("filename", source_file.name))
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             self.send_json(400, {"error": str(exc) or "文件内容无效"})
             return
 
         temp_path = None
         try:
-            source_file.parent.mkdir(parents=True, exist_ok=True)
+            if target_file != source_file and target_file.exists():
+                self.send_json(409, {"error": f"目标文件已存在：{target_file}"})
+                return
+            target_file.parent.mkdir(parents=True, exist_ok=True)
             descriptor, temp_name = tempfile.mkstemp(
-                prefix=f".{source_file.name}.", suffix=".tmp", dir=source_file.parent
+                prefix=f".{target_file.name}.", suffix=".tmp", dir=target_file.parent
             )
             os.close(descriptor)
             temp_path = Path(temp_name)
             with temp_path.open("w", encoding="utf-8", newline="\n") as output_file:
                 output_file.write(content)
-            os.replace(temp_path, source_file)
-            stat = source_file.stat()
-            self.send_json(
-                200,
-                {
-                    "path": str(source_file),
-                    "modified_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
-                },
-            )
+            os.replace(temp_path, target_file)
+            if target_file != source_file:
+                source_file.unlink()
+                EDITABLE_FILES[request_path] = target_file
+            self.send_json(200, file_payload(target_file))
         except Exception as exc:
             self.send_json(500, {"error": f"保存文件失败：{exc}"})
         finally:

@@ -67,6 +67,9 @@ button { font: inherit; }
 .code-file-title { min-width: 0; padding: 4px 7px 3px; }
 .code-file-title strong,.code-file-title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0; }
 .code-file-title strong { font-size: 12px; line-height: 17px; }
+.code-file-title strong[contenteditable="true"],.image-file-title strong[contenteditable="true"] { border-radius: 2px; outline: 1px solid transparent; cursor: text; }
+.code-file-title strong[contenteditable="true"]:hover,.image-file-title strong[contenteditable="true"]:hover { background: #e5e9ed; outline-color: #aab4be; }
+.code-file-title strong[contenteditable="true"]:focus,.image-file-title strong[contenteditable="true"]:focus { background: #fff; outline: 2px solid #2679bd; }
 .code-file-title span { color: #6b747e; font-size: 9px; line-height: 14px; }
 .code-file-panel pre { width: 100%; height: calc(100% - 48px); margin: 0; padding: 12px 14px 18px; overflow: auto; background: #20252a; color: #edf1f4; caret-color: #fff; cursor: text; font: 11px/1.55 Consolas,"SFMono-Regular",monospace; letter-spacing: 0; white-space: pre; tab-size: 2; }
 .code-file-panel pre:focus { outline: 2px solid #f2b84b; outline-offset: -3px; }
@@ -74,19 +77,21 @@ button { font: inherit; }
 .code-file-resize::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border: 1px solid #fff; border-width: 0 1px 1px 0; }
 .code-file-panel button:focus-visible { outline: 2px solid #f2b84b; outline-offset: -3px; }
 .image-file-panel { position: absolute; z-index: 11; border: 1px solid #9faab5; border-radius: 5px; background: #fff; box-shadow: 0 3px 10px rgba(20,29,38,.18); overflow: hidden; }
-.image-file-panel header { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px; align-items: center; height: 48px; border-bottom: 1px solid #c5cbd1; background: #f5f7f9; color: #252a31; }
+.image-file-panel.dirty { border-color: #d39a2c; box-shadow: 0 0 0 2px rgba(211,154,44,.18),0 3px 10px rgba(20,29,38,.18); }
+.image-file-panel header { display: grid; grid-template-columns: 34px minmax(0,1fr) 34px 34px; align-items: center; height: 48px; border-bottom: 1px solid #c5cbd1; background: #f5f7f9; color: #252a31; }
 .image-file-panel header button { width: 34px; height: 47px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #505963; }
 .image-file-drag { position: relative; cursor: move; }
-.image-file-drag:hover,.image-file-refresh:hover { background: #e4e9ed !important; }
+.image-file-drag:hover,.image-file-refresh:hover,.image-file-save:hover:not(:disabled) { background: #e4e9ed !important; }
 .image-file-drag span { position: absolute; left: 8px; top: 17px; width: 3px; height: 3px; border-radius: 50%; background: #64717d; box-shadow: 6px 0 #64717d,12px 0 #64717d,0 6px #64717d,6px 6px #64717d,12px 6px #64717d; }
 .image-file-title { min-width: 0; padding: 4px 7px 3px; }
 .image-file-title strong,.image-file-title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0; }
 .image-file-title strong { font-size: 12px; line-height: 17px; }
 .image-file-title span { color: #6b747e; font-size: 9px; line-height: 14px; }
 .image-file-refresh { font-size: 20px; line-height: 1; cursor: pointer; }
-.image-file-refresh:disabled { opacity: .35; cursor: default; }
+.image-file-refresh:disabled,.image-file-save:disabled { opacity: .35; cursor: default; }
 .image-file-canvas { position: relative; width: 100%; height: calc(100% - 48px); overflow: hidden; background: #fff; }
 .image-file-canvas img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; user-select: none; -webkit-user-drag: none; }
+.image-file-canvas img:fullscreen { width: 100vw; height: 100vh; background: #fff; object-fit: contain; cursor: zoom-out; }
 .image-file-canvas p { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; background: #fff; color: #6b747e; font-size: 11px; text-align: center; }
 .image-file-canvas p[hidden] { display: none; }
 .image-file-resize { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 0; background: #2388df; cursor: nwse-resize; }
