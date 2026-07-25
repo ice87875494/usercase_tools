@@ -34,6 +34,7 @@ const SUB_V1_GDC0_KEY = '301:629';
 const GDC0_RATIO_D1_KEY = '121:980';
 const GDC0_RATIO_D4_KEY = '241:980';
 const GDC0_RATIO_D16_KEY = '361:980';
+const SUB_GDC0_RATIO_D1_KEY = 'subgdc0:121:980';
 const GDC1_MESH_D1_KEY = '641:820';
 const GDC1_MESH_D4_KEY = '761:820';
 const GDC1_MESH_D16_KEY = '881:820';
@@ -138,6 +139,7 @@ function formatDimensions(dimensions) { return `w:${dimensions.width}\nh:${dimen
 function validateSource(cell) { const dimensions=cell&&parseDimensions(cell.value),valid=dimensions&&dimensions.width>0&&dimensions.height>0; if(cell){cell.foreignObject.classList.toggle('invalid-cell',!valid);cell.editor.setAttribute('aria-invalid',String(!valid));} return valid?dimensions:null; }
 function setComputedCell(key,label) { const cell=findCell(key); if(!cell)return null; cell.foreignObject.classList.add('computed-cell'); cell.editor.contentEditable='true'; cell.editor.tabIndex=0; cell.editor.setAttribute('role','textbox'); cell.editor.setAttribute('aria-label',label.replace(/^自动计算的\s*/,'编辑')); return cell; }
 function ratioText(numerator,denominator) { if(!numerator||!denominator||!denominator.width||!denominator.height)return null; return `[${numerator.width/denominator.width}, ${numerator.height/denominator.height}]`; }
+function updateSubGdc0Ratio(save=true) { const numerator=parseDimensions(findCell(SUB_V1_GDC0_KEY)?.value),denominator=parseDimensions(findCell(SUB_V1_YSC_KEY)?.value),ratio=ratioText(numerator,denominator);if(ratio)updateCell(findCell(SUB_GDC0_RATIO_D1_KEY),ratio,false);if(save)saveDraft(); }
 function meshGridText(dimensions) { return `${dimensions.width/32+1}/${dimensions.height/32+1}`; }
 function titleAspectRatio() { const match=pageTitle.textContent.match(/(\d+(?:\.\d+)?)\s*[:：]\s*(\d+(?:\.\d+)?)/);if(!match)return null;const width=Number(match[1]),height=Number(match[2]);return width>0&&height>0?width/height:null; }
 function formatF2mNumber(value) { const fixed=value.toFixed(12),[integer,fraction]=fixed.split('.'),doubleZero=fraction.indexOf('00');return doubleZero<0?fixed:`${integer}.${fraction.slice(0,doubleZero+1)}`; }
@@ -175,10 +177,11 @@ function calculateResolutionRules(save=true) {
   if(d1Ratio)updateCell(findCell(GDC0_RATIO_D1_KEY),d1Ratio,false);
   if(d4Ratio)updateCell(findCell(GDC0_RATIO_D4_KEY),d4Ratio,false);
   if(d16Ratio)updateCell(findCell(GDC0_RATIO_D16_KEY),d16Ratio,false);
+  updateSubGdc0Ratio(false);
   if(save) saveDraft();
 }
 function configureResolutionRules() {
-  const sensor=findCell(SENSOR_CELL_KEY),v2wr=findCell(V2_WR_D1_KEY);
+  const sensor=findCell(SENSOR_CELL_KEY),v2wr=findCell(V2_WR_D1_KEY),subYsc=findCell(SUB_V1_YSC_KEY),subGdc0=findCell(SUB_V1_GDC0_KEY);
   if(sensor){sensor.foreignObject.classList.add('source-cell');sensor.editor.setAttribute('aria-label','输入 Sensor 分辨率 w 和 h');sensor.editor.addEventListener('input',()=>calculateResolutionRules());}
   if(v2wr){v2wr.foreignObject.classList.add('source-cell');v2wr.editor.setAttribute('aria-label','输入 main-D1 V2-wr 分辨率 w 和 h');v2wr.editor.addEventListener('input',()=>calculateResolutionRules());}
   setComputedCell(FPP_CELL_KEY,'自动计算的 FPP 分辨率');
@@ -194,12 +197,14 @@ function configureResolutionRules() {
   setComputedCell(GDC0_RATIO_D1_KEY,'自动计算的 D1 scale_ratio');
   setComputedCell(GDC0_RATIO_D4_KEY,'自动计算的 D4 scale_ratio');
   setComputedCell(GDC0_RATIO_D16_KEY,'自动计算的 D16 scale_ratio');
+  setComputedCell(SUB_GDC0_RATIO_D1_KEY,'自动计算的 sub D1 scale_ratio');
   setComputedCell(GDC1_MESH_D1_KEY,'自动计算的 GDC1 D1 mesh_nx/mesh_ny');
   setComputedCell(GDC1_MESH_D4_KEY,'自动计算的 GDC1 D4 mesh_nx/mesh_ny');
   setComputedCell(GDC1_MESH_D16_KEY,'自动计算的 GDC1 D16 mesh_nx/mesh_ny');
   setComputedCell(F2M_D1_KEY,'Python算法计算的 f2m d1 ROI');
   setComputedCell(F2M_D2_KEY,'Python算法计算的 f2m d2 ROI');
   setComputedCell(F2M_D4_KEY,'Python算法计算的 f2m d4 ROI');
+  subYsc?.editor.addEventListener('input',()=>updateSubGdc0Ratio());subGdc0?.editor.addEventListener('input',()=>updateSubGdc0Ratio());
   calculateResolutionRules(false);
 }
 function svgElement(name,attributes={}) { const node=document.createElementNS('http://www.w3.org/2000/svg',name);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));return node; }
