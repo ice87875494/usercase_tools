@@ -31,6 +31,8 @@ const V1_GDC0_D4_KEY = '301:545';
 const V1_GDC0_D16_KEY = '301:587';
 const SUB_V1_YSC_KEY = '227:629';
 const SUB_V1_GDC0_KEY = '301:629';
+const SUB_V1_WR_KEY = '377:629';
+const EMPHASIZED_DIMENSION_KEYS = new Set([SENSOR_CELL_KEY,V2_WR_D1_KEY,SUB_V1_WR_KEY]);
 const GDC0_RATIO_D1_KEY = '121:980';
 const GDC0_RATIO_D4_KEY = '241:980';
 const GDC0_RATIO_D16_KEY = '361:980';
@@ -45,6 +47,13 @@ const SENSOR_BIT_DEPTH_KEY = '801:603';
 const SENSOR_TYPE_KEY = '801:648';
 const SENSOR_LAYOUT_VERSION = 1;
 const GDC_HEADER_LAYOUT_VERSION = 1;
+const DEFAULT_CELL_VALUES = {
+  '301:629':'w:1920 h:1088','526:503':'w:3840 h:2160',
+  'subgdc0:241:980':'[0.9375, 0.6071428571428571]','subgdc0:361:980':'[0.9375, 0.6071428571428571]',
+  'subgdc1:641:820':'37/29','subgdc1:641:860':'2','subgdc1:641:900':'[1.0, 1.0]','subgdc1:641:1100':'0',
+  'subgdc1:761:820':'37/29','subgdc1:761:860':'2','subgdc1:761:900':'[1.0, 1.0]','subgdc1:761:1100':'0',
+  'subgdc1:881:820':'37/29','subgdc1:881:900':'[1.0, 1.0]','subgdc1:881:1100':'0'
+};
 const CONFIGS = {
   '1:342': { type: 'single', label: '工作模式', options: ['录制（含录制中预览）', '低功耗预览流'], defaultValue: '录制（含录制中预览）' },
   '172:342': { type: 'single', label: '链路模式', options: ['normal', 'ainr', 'rmsc'], defaultValue: 'normal' },
@@ -107,10 +116,23 @@ function zoomCenter(factor) { const rect=viewport.getBoundingClientRect(); zoomA
 function readDraft() { try { const draft=JSON.parse(localStorage.getItem(STORAGE_KEY))||{};if(draft[SENSOR_BIT_DEPTH_KEY]===undefined&&draft['901:603']!==undefined)draft[SENSOR_BIT_DEPTH_KEY]=draft['901:603'];if(draft[SENSOR_TYPE_KEY]===undefined&&draft['901:648']!==undefined)draft[SENSOR_TYPE_KEY]=draft['901:648'];return draft; } catch { return {}; } }
 function saveDraft() { localStorage.setItem(STORAGE_KEY,JSON.stringify(Object.fromEntries(cells.map(cell=>[keyFor(cell),cell.value])))); saveStatus.textContent='已自动保存'; }
 function updateFallback(fallback,value) { const wrap=Number(fallback?.dataset.wrapChars||0); if(!fallback)return; if(!wrap){fallback.textContent=normalize(value);return;} const words=normalize(value).split(/(?<=,)|\s+/),lines=[]; let line=''; for(const word of words){const next=`${line}${line?' ':''}${word}`.trim();if(line&&next.length>wrap){lines.push(line);line=word;}else line=next;}if(line)lines.push(line);const centerY=Number(fallback.dataset.centerY);const lineHeight=Number(fallback.dataset.lineHeight||11);fallback.replaceChildren(...lines.map((text,index)=>{const span=document.createElementNS('http://www.w3.org/2000/svg','tspan');span.setAttribute('x',fallback.getAttribute('x'));span.setAttribute('y',String(centerY+(index-(lines.length-1)/2)*lineHeight));span.textContent=text;return span;})); }
-function updateCell(cell,value,save=true) { cell.value=String(value); if(cell.editor.innerText!==cell.value) cell.editor.innerText=cell.value; updateFallback(cell.fallback,cell.value); if(save) saveDraft(); }
-function captureCellInput(cell) { cell.value=String(cell.editor.innerText).replace(/\u00a0/g,' ').replace(/\r/g,'').trim();updateFallback(cell.fallback,cell.value);saveDraft(); }
+function syncDimensionInputs(cell) { const dimensions=parseDimensions(cell.value);cell.dimensionInputs.width.value=dimensions?String(dimensions.width):'';cell.dimensionInputs.height.value=dimensions?String(dimensions.height):''; }
+function updateCell(cell,value,save=true) { cell.value=String(value); if(cell.dimensionInputs)syncDimensionInputs(cell);else if(cell.editor.innerText!==cell.value)cell.editor.innerText=cell.value; updateFallback(cell.fallback,cell.value); if(save) saveDraft(); }
+function captureCellInput(cell) { if(cell.dimensionInputs){const width=cell.dimensionInputs.width.value.trim(),height=cell.dimensionInputs.height.value.trim();cell.value=`w:${width}\nh:${height}`;}else cell.value=String(cell.editor.innerText).replace(/\u00a0/g,' ').replace(/\r/g,'').trim();updateFallback(cell.fallback,cell.value);saveDraft(); }
 function selectText(editor) { const selection=window.getSelection(),range=document.createRange(); range.selectNodeContents(editor); selection.removeAllRanges(); selection.addRange(range); }
-function moveCell(cell,direction) { const next=cells[cells.indexOf(cell)+direction]; if(!next)return; next.editor.focus(); if(next.editor.isContentEditable) selectText(next.editor); }
+function focusCell(cell,direction=1) { if(cell.dimensionInputs){const input=direction<0?cell.dimensionInputs.height:cell.dimensionInputs.width;input.focus();input.select();return;}cell.editor.focus();if(cell.editor.isContentEditable)selectText(cell.editor); }
+function moveCell(cell,direction) { let index=cells.indexOf(cell)+direction;while(index>=0&&index<cells.length){const next=cells[index];if(!next.disabled){focusCell(next,direction);return;}index+=direction;} }
+function handleCellKeydown(cell,event) {
+  if(event.key==='Tab'){
+    if(cell.dimensionInputs&&event.target===cell.dimensionInputs.width&&!event.shiftKey){event.preventDefault();cell.dimensionInputs.height.focus();cell.dimensionInputs.height.select();return;}
+    if(cell.dimensionInputs&&event.target===cell.dimensionInputs.height&&event.shiftKey){event.preventDefault();cell.dimensionInputs.width.focus();cell.dimensionInputs.width.select();return;}
+    event.preventDefault();moveCell(cell,event.shiftKey?-1:1);
+  } else if(event.key==='Enter'&&!event.shiftKey){
+    event.preventDefault();
+    if(cell.dimensionInputs&&event.target===cell.dimensionInputs.width){cell.dimensionInputs.height.focus();cell.dimensionInputs.height.select();}else event.target.blur();
+  } else if(event.key==='Escape')event.target.blur();
+  else if(cell.config&&(event.key==='ArrowDown'||event.key===' ')){event.preventDefault();openMenu(cell);}
+}
 function closeMenu() { if(activeCell)activeCell.editor.setAttribute('aria-expanded','false');fieldMenu.hidden=true; fieldMenu.replaceChildren(); activeCell=null; }
 function placeMenu(cell) { const rect=cell.editor.getBoundingClientRect(), width=Math.max(150,rect.width), rows=cell.config.type==='parts'?cell.config.parts.length:1, height=18+rows*38; fieldMenu.style.left=`${Math.min(innerWidth-width-8,Math.max(8,rect.left))}px`; fieldMenu.style.top=`${Math.max(8,rect.bottom+height+5>innerHeight?rect.top-height-5:rect.bottom+5)}px`; fieldMenu.style.width=`${width}px`; }
 function parseParts(cell) { const values={}; for(const part of cell.config.parts){ const match=cell.value.match(new RegExp(`${part.key}\\s*[:：]\\s*([^\\n]+)`,'i')); const candidate=normalize(match?.[1]||'').toLowerCase(); values[part.key]=part.options.find(option=>option.toLowerCase()===candidate)||part.defaultValue; } return values; }
@@ -137,7 +159,7 @@ function ceilTo32(value) { return Math.ceil(value/32)*32; }
 function findCell(key) { return cells.find(cell=>keyFor(cell)===key); }
 function formatDimensions(dimensions) { return `w:${dimensions.width}\nh:${dimensions.height}`; }
 function validateSource(cell) { const dimensions=cell&&parseDimensions(cell.value),valid=dimensions&&dimensions.width>0&&dimensions.height>0; if(cell){cell.foreignObject.classList.toggle('invalid-cell',!valid);cell.editor.setAttribute('aria-invalid',String(!valid));} return valid?dimensions:null; }
-function setComputedCell(key,label) { const cell=findCell(key); if(!cell)return null; cell.foreignObject.classList.add('computed-cell'); cell.editor.contentEditable='true'; cell.editor.tabIndex=0; cell.editor.setAttribute('role','textbox'); cell.editor.setAttribute('aria-label',label.replace(/^自动计算的\s*/,'编辑')); return cell; }
+function setComputedCell(key,label) { const cell=findCell(key); if(!cell)return null; cell.foreignObject.classList.add('computed-cell'); cell.editor.contentEditable=cell.dimensionInputs?'false':'true'; cell.editor.tabIndex=cell.dimensionInputs?-1:0; cell.editor.setAttribute('role',cell.dimensionInputs?'group':'textbox'); cell.editor.setAttribute('aria-label',label.replace(/^自动计算的\s*/,'编辑')); return cell; }
 function ratioText(numerator,denominator) { if(!numerator||!denominator||!denominator.width||!denominator.height)return null; return `[${numerator.width/denominator.width}, ${numerator.height/denominator.height}]`; }
 function updateSubGdc0Ratio(save=true) { const numerator=parseDimensions(findCell(SUB_V1_GDC0_KEY)?.value),denominator=parseDimensions(findCell(SUB_V1_YSC_KEY)?.value),ratio=ratioText(numerator,denominator);if(ratio)updateCell(findCell(SUB_GDC0_RATIO_D1_KEY),ratio,false);if(save)saveDraft(); }
 function meshGridText(dimensions) { return `${dimensions.width/32+1}/${dimensions.height/32+1}`; }
@@ -336,10 +358,20 @@ function initializeTextFileModule(module) {
   module.title.addEventListener('input',()=>setTextFileDirty(module,true));module.title.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();module.title.blur();}});module.code.addEventListener('input',()=>setTextFileDirty(module,true));module.code.addEventListener('keydown',(event)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if(module.dirty)saveTextFileModule(module);}});module.save.addEventListener('click',(event)=>{event.stopPropagation();saveTextFileModule(module);});module.refresh.addEventListener('click',(event)=>{event.stopPropagation();loadTextFileModule(module);});loadTextFileModule(module,false);
 }
 function initializeTextFileModules() { for(const module of textFileModules)initializeTextFileModule(module); }
+function configureDimensionCell(cell) {
+  if(cell.tableId!=='resolution'||cell.y<503||cell.x===1)return;
+  const dimensions=parseDimensions(cell.value);
+  if(!dimensions){updateCell(cell,'---',false);if(cell.fallback){cell.fallback.setAttribute('fill','#111111');cell.fallback.setAttribute('font-weight','normal');}return;}
+  const rowName={503:'main-D1',545:'main-D4',587:'main-D16',629:'sub'}[cell.y]||'',columnName={76:'Sensor',152:'FPP',227:'V1-ysc',301:'V1-gdc0',377:'V1-wr',452:'V2-ysc',526:'V2-wr'}[cell.x]||'',name=`${rowName} ${columnName}`.trim(),makeRow=(axis,value)=>{const row=document.createElement('label');row.className='dimension-input-row';const caption=document.createElement('span');caption.textContent=axis;const input=document.createElement('input');input.type='number';input.min='1';input.step='1';input.inputMode='numeric';input.value=value;input.setAttribute('aria-label',`编辑 ${name} ${axis==='w'?'宽度':'高度'} ${axis}`);input.addEventListener('pointerdown',(event)=>event.stopPropagation());row.append(caption,input);return{row,input};},width=makeRow('w',String(dimensions.width)),height=makeRow('h',String(dimensions.height));
+  cell.editor.replaceChildren(width.row,height.row);cell.editor.classList.add('dimension-inputs');cell.editor.contentEditable='false';cell.editor.tabIndex=-1;cell.editor.setAttribute('role','group');cell.editor.setAttribute('aria-label',`编辑 ${name} 分辨率`);cell.dimensionInputs={width:width.input,height:height.input};cell.foreignObject.classList.add('dimension-cell');cell.foreignObject.dataset.cellKey=keyFor(cell);
+  const emphasized=EMPHASIZED_DIMENSION_KEYS.has(keyFor(cell));cell.foreignObject.classList.toggle('emphasized-dimension-cell',emphasized);
+  if(cell.fallback){cell.fallback.setAttribute('fill','#111111');cell.fallback.setAttribute('font-weight',emphasized?'700':'normal');}
+}
+function configureDisabledSubCell(cell) { const disabled=cell.tableId==='subgdc0'&&(cell.x===241||cell.x===361)||cell.tableId==='subgdc1'&&(cell.x===761||cell.x===881);if(!disabled)return;cell.disabled=true;cell.foreignObject.classList.add('disabled-cell');cell.editor.contentEditable='false';cell.editor.tabIndex=-1;cell.editor.setAttribute('aria-disabled','true'); }
 function bindCells(svg) {
   cells.length=0; const draft=readDraft();
-  for(const foreignObject of svg.querySelectorAll('foreignObject')) { const x=coordinate(foreignObject,'x'),y=coordinate(foreignObject,'y'); if(y<TABLE_START_Y)continue; const editor=foreignObject.querySelector('div > div > div'); if(!editor)continue; const fallback=foreignObject.closest('switch')?.querySelector('text')||null,defaultValue=normalize(editor.innerText),tableId=foreignObject.closest('[data-table-content]')?.dataset.tableContent||'',scope=tableId.startsWith('subgdc')?tableId:'',layout=scope?tableLayouts.find(item=>item.id===scope):null,sortY=y+(layout?layout.defaultY-layout.baseY:0); const cell={x,y,sortY,scope,editor,fallback,foreignObject,defaultValue,value:defaultValue,config:null,partValues:null}; cells.push(cell); foreignObject.classList.add('editable-cell'); editor.contentEditable='true'; editor.tabIndex=0; editor.spellcheck=false; editor.setAttribute('role','textbox'); editor.setAttribute('aria-label',`编辑${scope?'sub ':''}表格单元格：${defaultValue||`${x},${y}`}`); editor.addEventListener('pointerdown',(event)=>{if(editor.getAttribute('contenteditable')==='true'){event.stopPropagation();editor.focus();}}); const saved=draft[keyFor(cell)]; if(typeof saved==='string')updateCell(cell,saved,false); editor.addEventListener('input',()=>captureCellInput(cell)); editor.addEventListener('keydown',(event)=>{ if(event.key==='Tab'){event.preventDefault();moveCell(cell,event.shiftKey?-1:1);} else if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();editor.blur();} else if(event.key==='Escape')editor.blur(); else if(cell.config&&(event.key==='ArrowDown'||event.key===' ')){event.preventDefault();openMenu(cell);} }); }
-  cells.sort((a,b)=>a.sortY-b.sortY||a.x-b.x); cells.forEach(configureCell); configureResolutionRules(); saveStatus.textContent=Object.keys(draft).length?'已恢复本地表格':'表格自动保存';
+  for(const foreignObject of svg.querySelectorAll('foreignObject')) { const x=coordinate(foreignObject,'x'),y=coordinate(foreignObject,'y'); if(y<TABLE_START_Y)continue; const editor=foreignObject.querySelector('div > div > div'); if(!editor)continue; const fallback=foreignObject.closest('switch')?.querySelector('text')||null,tableId=foreignObject.closest('[data-table-content]')?.dataset.tableContent||'',scope=tableId.startsWith('subgdc')?tableId:'',key=`${scope?`${scope}:`:''}${x}:${y}`,sourceDefault=normalize(editor.innerText),defaultValue=DEFAULT_CELL_VALUES[key]??sourceDefault,layout=scope?tableLayouts.find(item=>item.id===scope):null,sortY=y+(layout?layout.defaultY-layout.baseY:0);if(defaultValue!==sourceDefault){editor.innerText=defaultValue;updateFallback(fallback,defaultValue);}const cell={x,y,sortY,scope,tableId,editor,fallback,foreignObject,defaultValue,value:defaultValue,config:null,partValues:null,disabled:false,dimensionInputs:null}; cells.push(cell); foreignObject.classList.add('editable-cell'); editor.contentEditable='true'; editor.tabIndex=0; editor.spellcheck=false; editor.setAttribute('role','textbox'); editor.setAttribute('aria-label',`编辑${scope?'sub ':''}表格单元格：${defaultValue||`${x},${y}`}`); editor.addEventListener('pointerdown',(event)=>{if(editor.getAttribute('contenteditable')==='true'){event.stopPropagation();editor.focus();}}); const saved=draft[keyFor(cell)]; if(typeof saved==='string')updateCell(cell,saved,false); editor.addEventListener('input',()=>captureCellInput(cell)); editor.addEventListener('keydown',(event)=>handleCellKeydown(cell,event)); }
+  cells.sort((a,b)=>a.sortY-b.sortY||a.x-b.x); cells.forEach(configureCell);cells.forEach(configureDimensionCell);cells.forEach(configureDisabledSubCell);configureResolutionRules(); saveStatus.textContent=Object.keys(draft).length?'已恢复本地表格':'表格自动保存';
 }
 function resetTable() { for(const cell of cells){ updateCell(cell,cell.defaultValue,false); if(cell.config)normalizeConfiguredCell(cell); } calculateResolutionRules(false);resetTableLayouts();resetF2mTriggerLayout();resetTextFileLayouts();resetPipelineImageLayout();saveDraft();showToast('表格内容和布局已恢复默认值'); }
 function exportBounds() { const padding=20,minX=Math.min(...tableLayouts.map(layout=>layout.x))-padding,minY=Math.min(...tableLayouts.map(layout=>layout.y))-padding,maxX=Math.max(...tableLayouts.map(layout=>layout.x+layout.width))+padding,maxY=Math.max(...tableLayouts.map(layout=>layout.y+layout.height))+padding;return{x:minX,y:minY,width:maxX-minX,height:maxY-minY}; }
