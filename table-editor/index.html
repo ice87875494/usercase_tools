@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f5f7f9">
   <title>4K30 Normal Preview</title>
-  <link rel="stylesheet" href="styles.css?v=20260724-35">
+  <link rel="stylesheet" href="styles.css?v=20260724-38">
 </head>
 <body>
   <header class="topbar">
@@ -72,7 +72,7 @@
           <button id="pipelineImageSave" class="image-file-save" type="button" title="保存文件名" aria-label="保存流程图文件名" disabled><span class="save-file-icon" aria-hidden="true"></span></button>
           <button id="pipelineImageRefresh" class="image-file-refresh" type="button" title="刷新流程图" aria-label="刷新 imcmctfnnnoainrpipeline.svg">↻</button>
         </header>
-        <div class="image-file-canvas">
+        <div id="pipelineImageCanvas" class="image-file-canvas">
           <img id="pipelineImage" alt="mctfnnnoainr pipeline 流程图">
           <p id="pipelineImageStatus" role="status">正在读取...</p>
         </div>
@@ -90,6 +90,6 @@
     <pre id="f2mLog" aria-live="polite"></pre>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260724-35"></script>
+  <script src="app.js?v=20260724-38"></script>
 </body>
 </html>
