@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -67,6 +68,13 @@ def file_payload(source_file):
 
 
 class AppHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        try:
+            super().log_message(format, *args)
+        except (OSError, ValueError):
+            # A detached Windows launcher may close its inherited stderr.
+            pass
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
@@ -130,6 +138,41 @@ class AppHandler(SimpleHTTPRequestHandler):
     def do_PUT(self):
         global PIPELINE_DIAGRAM
         request_path = urlparse(self.path).path
+        if request_path == "/api/pipeline-diagram.svg":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 12 * 1024 * 1024:
+                    raise ValueError("SVG 文件大小无效")
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                content = payload["content"]
+                if not isinstance(content, str):
+                    raise ValueError("SVG 文件内容必须是文本")
+                root = ET.fromstring(content.lstrip("\ufeff"))
+                if root.tag.rsplit("}", 1)[-1].lower() != "svg":
+                    raise ValueError("导入文件不是有效的 SVG")
+                target_file = renamed_file(PIPELINE_DIAGRAM, payload["filename"])
+            except (KeyError, TypeError, ValueError, ET.ParseError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc) or "SVG 文件无效"})
+                return
+            temp_path = None
+            try:
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                descriptor, temp_name = tempfile.mkstemp(
+                    prefix=f".{target_file.name}.", suffix=".tmp", dir=target_file.parent
+                )
+                os.close(descriptor)
+                temp_path = Path(temp_name)
+                with temp_path.open("w", encoding="utf-8", newline="\n") as output_file:
+                    output_file.write(content)
+                os.replace(temp_path, target_file)
+                PIPELINE_DIAGRAM = target_file
+                self.send_json(200, file_payload(PIPELINE_DIAGRAM))
+            except OSError as exc:
+                self.send_json(500, {"error": f"导入 SVG 失败：{exc}"})
+            finally:
+                if temp_path and temp_path.exists():
+                    temp_path.unlink()
+            return
         if request_path == "/api/pipeline-diagram-info":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -193,7 +236,45 @@ class AppHandler(SimpleHTTPRequestHandler):
                 temp_path.unlink()
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/calc-f2m":
+        request_path = urlparse(self.path).path
+        if request_path.endswith("/import"):
+            endpoint = request_path[: -len("/import")]
+            source_file = EDITABLE_FILES.get(endpoint)
+            if not source_file:
+                self.send_json(404, {"error": "API not found"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 2 * 1024 * 1024:
+                    raise ValueError("文件内容大小无效")
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                content = payload["content"]
+                if not isinstance(content, str):
+                    raise ValueError("文件内容必须是文本")
+                target_file = renamed_file(source_file, payload["filename"])
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc) or "导入文件无效"})
+                return
+            temp_path = None
+            try:
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                descriptor, temp_name = tempfile.mkstemp(
+                    prefix=f".{target_file.name}.", suffix=".tmp", dir=target_file.parent
+                )
+                os.close(descriptor)
+                temp_path = Path(temp_name)
+                with temp_path.open("w", encoding="utf-8", newline="\n") as output_file:
+                    output_file.write(content)
+                os.replace(temp_path, target_file)
+                EDITABLE_FILES[endpoint] = target_file
+                self.send_json(200, file_payload(target_file))
+            except OSError as exc:
+                self.send_json(500, {"error": f"导入文件失败：{exc}"})
+            finally:
+                if temp_path and temp_path.exists():
+                    temp_path.unlink()
+            return
+        if request_path != "/api/calc-f2m":
             self.send_json(404, {"error": "API not found"})
             return
 

@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f5f7f9">
-  <title>4K30 Normal Preview</title>
-  <link rel="stylesheet" href="styles.css?v=20260725-43">
+  <title>4K30 16:9 Normal 2path Mutil-scale preview</title>
+  <link rel="stylesheet" href="styles.css?v=20260726-49">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <span class="status-dot" aria-hidden="true"></span>
       <div>
-        <h1 id="pageTitle" contenteditable="true" spellcheck="false" aria-label="编辑页面标题">4K30 Normal Preview</h1>
+        <h1 id="pageTitle" contenteditable="true" spellcheck="false" aria-label="编辑页面标题">4K30 16:9 Normal 2path Mutil-scale preview</h1>
         <p id="saveStatus">表格自动保存</p>
       </div>
     </div>
@@ -43,9 +43,11 @@
             <strong id="imcCodeName" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑文件名">imcoverridesettings.txt</strong>
             <span id="imcCodePath">正在读取...</span>
           </div>
+          <button id="imcCodeImport" class="code-file-import" type="button" title="导入 TXT 文件" aria-label="导入 imcoverridesettings.txt"><span class="import-file-icon" aria-hidden="true"></span></button>
           <button id="imcCodeSave" class="code-file-save" type="button" title="保存文件" aria-label="保存 imcoverridesettings.txt" disabled><span class="save-file-icon" aria-hidden="true"></span></button>
           <button id="imcCodeRefresh" class="code-file-refresh" type="button" title="刷新文件内容" aria-label="刷新 imcoverridesettings.txt">↻</button>
         </header>
+        <input id="imcCodeFileInput" class="module-file-input" type="file" accept=".txt,text/plain">
         <pre id="imcCode" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑 imcoverridesettings.txt">正在读取...</pre>
         <button id="imcCodeResize" class="code-file-resize" type="button" title="调整代码框大小" aria-label="调整 imcoverridesettings.txt 代码框大小"></button>
       </section>
@@ -56,9 +58,11 @@
             <strong id="scriptCodeName" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑文件名">3840x2176_30_ainr_yuvflow_eis_on_c10_sensormode42.sh</strong>
             <span id="scriptCodePath">正在读取...</span>
           </div>
+          <button id="scriptCodeImport" class="code-file-import" type="button" title="导入 SH 文件" aria-label="导入 Usecase 脚本"><span class="import-file-icon" aria-hidden="true"></span></button>
           <button id="scriptCodeSave" class="code-file-save" type="button" title="保存文件" aria-label="保存 Usecase 脚本" disabled><span class="save-file-icon" aria-hidden="true"></span></button>
           <button id="scriptCodeRefresh" class="code-file-refresh" type="button" title="刷新文件内容" aria-label="刷新 Usecase 脚本">↻</button>
         </header>
+        <input id="scriptCodeFileInput" class="module-file-input" type="file" accept=".sh,text/x-shellscript,text/plain">
         <pre id="scriptCode" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑 Usecase 脚本">正在读取...</pre>
         <button id="scriptCodeResize" class="code-file-resize" type="button" title="调整代码框大小" aria-label="调整 Usecase 脚本代码框大小"></button>
       </section>
@@ -69,9 +73,11 @@
             <strong id="pipelineImageName" contenteditable="true" spellcheck="false" role="textbox" aria-label="编辑文件名">imcmctfnnnoainrpipeline.svg</strong>
             <span id="pipelineImagePath">正在读取...</span>
           </div>
+          <button id="pipelineImageImport" class="image-file-import" type="button" title="导入 SVG 文件" aria-label="导入 SVG 流程图"><span class="import-file-icon" aria-hidden="true"></span></button>
           <button id="pipelineImageSave" class="image-file-save" type="button" title="保存文件名" aria-label="保存流程图文件名" disabled><span class="save-file-icon" aria-hidden="true"></span></button>
           <button id="pipelineImageRefresh" class="image-file-refresh" type="button" title="刷新流程图" aria-label="刷新 imcmctfnnnoainrpipeline.svg">↻</button>
         </header>
+        <input id="pipelineImageFileInput" class="module-file-input" type="file" accept=".svg,image/svg+xml">
         <div id="pipelineImageCanvas" class="image-file-canvas">
           <img id="pipelineImage" alt="mctfnnnoainr pipeline 流程图">
           <p id="pipelineImageStatus" role="status">正在读取...</p>
@@ -90,6 +96,6 @@
     <pre id="f2mLog" aria-live="polite"></pre>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260725-43"></script>
+  <script src="app.js?v=20260726-53"></script>
 </body>
 </html>
