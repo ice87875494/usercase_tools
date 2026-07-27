@@ -1,5 +1,5 @@
 const SIZE = { width: 1161, height: 1601 };
-const DEFAULT_TITLE = '4K30 16:9 Normal 1path3scale 2path3scale preview';
+const DEFAULT_TITLE = '4K30 16:9 Normal 1path2scale 2path3scale preview';
 const STORAGE_KEY = '4k30-table-editor-v1';
 const TITLE_KEY = '4k30-table-editor-title-v1';
 const LAYOUT_KEY = '4k30-table-layout-v2';
@@ -8,6 +8,15 @@ const IMC_CODE_LAYOUT_KEY = '4k30-imc-code-layout-v1';
 const SCRIPT_CODE_LAYOUT_KEY = '4k30-script-code-layout-v1';
 const PIPELINE_IMAGE_LAYOUT_KEY = '4k30-pipeline-image-layout-v1';
 const PIPELINE_NODE_STORAGE_KEY = '4k30-pipeline-nodes-v1';
+const STATE_VERSION_KEY = '4k30-table-editor-state-version';
+const STATE_VERSION = '2026-07-27-v1';
+const PERSISTED_STATE_KEYS = [STORAGE_KEY,TITLE_KEY,LAYOUT_KEY,F2M_TRIGGER_LAYOUT_KEY,IMC_CODE_LAYOUT_KEY,SCRIPT_CODE_LAYOUT_KEY,PIPELINE_IMAGE_LAYOUT_KEY,PIPELINE_NODE_STORAGE_KEY];
+function migratePersistedState() {
+  if(localStorage.getItem(STATE_VERSION_KEY)===STATE_VERSION)return;
+  for(const key of PERSISTED_STATE_KEYS)localStorage.removeItem(key);
+  localStorage.setItem(STATE_VERSION_KEY,STATE_VERSION);
+}
+migratePersistedState();
 const PIPELINE_NODE_MODE_RULES = new Map([
   ['470:74',{path:1,minScale:1}],['540:74',{path:1,minScale:1}],['645:74',{path:1,minScale:1}],
   ['470:124',{path:1,minScale:2}],['540:124',{path:1,minScale:2}],['645:124',{path:1,minScale:2}],
@@ -34,16 +43,16 @@ const SPLIT_PIPELINE_CONNECTORS = new Map([
 const PIPELINE_JUNCTIONS = [{x:430,y:70},{x:430,y:120},{x:730,y:70},{x:730,y:120}];
 const TABLE_START_Y = 250;
 const TABLE_DEFINITIONS = [
-  { id:'pipeline',name:'流程图',x:0,y:0,width:1160,height:240 },
-  { id:'usecase',name:'Usecase定义',x:0,y:250,width:600,height:120 },
-  { id:'ast',name:'iq-3ast配置',x:640,y:250,width:320,height:120 },
-  { id:'resolution',name:'分辨率变化表',x:0,y:410,width:600,height:240 },
-  { id:'f2m',name:'iq-f2m配置',x:640,y:410,width:320,height:120 },
-  { id:'sensor',name:'Sensor定义',x:640,y:550,width:320,height:120 },
-  { id:'gdc0',name:'main-iq-gdc0配置',x:0,y:680,width:480,height:441 },
-  { id:'gdc1',name:'main-iq-gdc1配置',x:520,y:680,width:480,height:441 },
-  { id:'subgdc0',name:'sub-iq-gdc0配置',x:0,y:1160,width:480,height:441,sourceId:'gdc0' },
-  { id:'subgdc1',name:'sub-iq-gdc1配置',x:520,y:1160,width:480,height:441,sourceId:'gdc1' }
+  { id:'pipeline',name:'流程图',x:0,y:0,width:1160,height:240,defaultLayout:{x:-3.52104,y:5.67429,width:1254.68,height:259.902} },
+  { id:'usecase',name:'Usecase定义',x:0,y:250,width:600,height:120,defaultLayout:{x:-5.70787,y:282.462,width:687.31,height:176.591} },
+  { id:'ast',name:'iq-3ast配置',x:640,y:250,width:320,height:120,defaultLayout:{x:750.597,y:286.457,width:500.011,height:167.761} },
+  { id:'resolution',name:'分辨率变化表',x:0,y:410,width:600,height:240,defaultLayout:{x:-2.93002,y:483.786,width:684.532,height:273.334} },
+  { id:'f2m',name:'iq-f2m配置',x:640,y:410,width:320,height:120,defaultLayout:{x:750.769,y:493.508,width:503.597,height:168.647} },
+  { id:'sensor',name:'Sensor定义',x:640,y:550,width:320,height:120,defaultLayout:{x:-370.332,y:5.1256,width:320,height:120} },
+  { id:'gdc0',name:'main-iq-gdc0配置',x:0,y:680,width:480,height:441,defaultLayout:{x:-4.47496,y:779.594,width:622.534,height:491.841} },
+  { id:'gdc1',name:'main-iq-gdc1配置',x:520,y:680,width:480,height:441,defaultLayout:{x:684.937,y:777.895,width:576.176,height:491.834} },
+  { id:'subgdc0',name:'sub-iq-gdc0配置',x:0,y:1160,width:480,height:441,sourceId:'gdc0',defaultLayout:{x:-3.23941,y:1333.11,width:619.487,height:529.644} },
+  { id:'subgdc1',name:'sub-iq-gdc1配置',x:520,y:1160,width:480,height:441,sourceId:'gdc1',defaultLayout:{x:679.948,y:1333.85,width:595.869,height:523.033} }
 ];
 const SENSOR_CELL_KEY = '76:503';
 const FPP_CELL_KEY = '152:503';
@@ -76,7 +85,9 @@ const SENSOR_LAYOUT_VERSION = 1;
 const GDC_HEADER_LAYOUT_VERSION = 1;
 const DEFAULT_CELL_VALUES = {
   '301:629':'w:1920 h:1088','526:503':'w:3840 h:2160',
-  'subgdc0:241:980':'[0.9375, 0.6071428571428571]','subgdc0:361:980':'[0.9375, 0.6071428571428571]',
+  [F2M_D2_KEY]:'[0.066666666667, 0.029411764706, 0.866666666667, 0.941176470588]',
+  [F2M_D4_KEY]:'[0.10, 0.029411764706, 0.80, 0.941176470588]',
+  'subgdc0:241:980':'[0.9375,\n0.6071428571428571]','subgdc0:361:980':'[0.9375,\n0.6071428571428571]',
   'subgdc1:641:820':'37/29','subgdc1:641:860':'2','subgdc1:641:900':'[1.0, 1.0]','subgdc1:641:1100':'0',
   'subgdc1:761:820':'37/29','subgdc1:761:860':'2','subgdc1:761:900':'[1.0, 1.0]','subgdc1:761:1100':'0',
   'subgdc1:881:820':'37/29','subgdc1:881:900':'[1.0, 1.0]','subgdc1:881:1100':'0'
@@ -97,7 +108,7 @@ const CONFIGS = {
     { key: 'main', label: 'main', options: ['关闭', 'd1', 'd1d4', 'd1d4d16'], defaultValue: 'd1d4d16' }
   ] },
   [SENSOR_BIT_DEPTH_KEY]: { type: 'number', label: 'ISP支持接入的bit位宽', min: 10, max: 20, defaultValue: '10' },
-  [SENSOR_TYPE_KEY]: { type: 'single', label: 'sensor类型', options: ['binning', 'DCG-HDR', 'fullr-rmsc_on', 'fullr-rmsc_off'], defaultValue: 'binning' }
+  [SENSOR_TYPE_KEY]: { type: 'single', label: 'sensor类型', options: ['binning', 'DCG-HDR', 'fullr-rmsc_on', 'fullr-rmsc_off'], defaultValue: 'DCG-HDR' }
 };
 
 const viewport = document.querySelector('#viewport');
@@ -117,13 +128,13 @@ const f2mLogDialog = document.querySelector('#f2mLogDialog');
 const f2mLog = document.querySelector('#f2mLog');
 const f2mLogClose = document.querySelector('#f2mLogClose');
 const view = { scale: 1, x: 0, y: 0, dragging: false, pointerX: 0, pointerY: 0 };
-const f2mTriggerLayout = { x: 970, y: 675, baseX: 970, baseY: 675 };
+const f2mTriggerLayout = { x: 1064.01, y: 686.06, baseX: 1064.01, baseY: 686.06 };
 const textFileModules = [
-  { name:'imcoverridesettings.txt',extension:'.txt',endpoint:'/api/imc-overrides',layoutKey:IMC_CODE_LAYOUT_KEY,panel:document.querySelector('#imcCodePanel'),drag:document.querySelector('#imcCodeDrag'),importButton:document.querySelector('#imcCodeImport'),fileInput:document.querySelector('#imcCodeFileInput'),save:document.querySelector('#imcCodeSave'),refresh:document.querySelector('#imcCodeRefresh'),resize:document.querySelector('#imcCodeResize'),title:document.querySelector('#imcCodeName'),path:document.querySelector('#imcCodePath'),code:document.querySelector('#imcCode'),layout:{x:1175,y:80,width:420,height:500,baseX:1175,baseY:80,baseWidth:420,baseHeight:500},dirty:false,sourceLabel:'',currentName:''},
-  { name:'Usecase 脚本',extension:'.sh',endpoint:'/api/usecase-script',layoutKey:SCRIPT_CODE_LAYOUT_KEY,panel:document.querySelector('#scriptCodePanel'),drag:document.querySelector('#scriptCodeDrag'),importButton:document.querySelector('#scriptCodeImport'),fileInput:document.querySelector('#scriptCodeFileInput'),save:document.querySelector('#scriptCodeSave'),refresh:document.querySelector('#scriptCodeRefresh'),resize:document.querySelector('#scriptCodeResize'),title:document.querySelector('#scriptCodeName'),path:document.querySelector('#scriptCodePath'),code:document.querySelector('#scriptCode'),layout:{x:1175,y:620,width:520,height:520,baseX:1175,baseY:620,baseWidth:520,baseHeight:520},dirty:false,sourceLabel:'',currentName:''}
+  { name:'imcoverridesettings.txt',extension:'.txt',endpoint:'/api/imc-overrides',layoutKey:IMC_CODE_LAYOUT_KEY,panel:document.querySelector('#imcCodePanel'),drag:document.querySelector('#imcCodeDrag'),importButton:document.querySelector('#imcCodeImport'),fileInput:document.querySelector('#imcCodeFileInput'),save:document.querySelector('#imcCodeSave'),refresh:document.querySelector('#imcCodeRefresh'),resize:document.querySelector('#imcCodeResize'),title:document.querySelector('#imcCodeName'),path:document.querySelector('#imcCodePath'),code:document.querySelector('#imcCode'),layout:{x:1351.25,y:2.23012,width:651.505,height:532.134,baseX:1351.25,baseY:2.23012,baseWidth:651.505,baseHeight:532.134},dirty:false,sourceLabel:'',currentName:''},
+  { name:'Usecase 脚本',extension:'.sh',endpoint:'/api/usecase-script',layoutKey:SCRIPT_CODE_LAYOUT_KEY,panel:document.querySelector('#scriptCodePanel'),drag:document.querySelector('#scriptCodeDrag'),importButton:document.querySelector('#scriptCodeImport'),fileInput:document.querySelector('#scriptCodeFileInput'),save:document.querySelector('#scriptCodeSave'),refresh:document.querySelector('#scriptCodeRefresh'),resize:document.querySelector('#scriptCodeResize'),title:document.querySelector('#scriptCodeName'),path:document.querySelector('#scriptCodePath'),code:document.querySelector('#scriptCode'),layout:{x:1349.45,y:610.713,width:654.113,height:621.357,baseX:1349.45,baseY:610.713,baseWidth:654.113,baseHeight:621.357},dirty:false,sourceLabel:'',currentName:''}
 ];
 const pipelineImageModule = {
-  extension:'.svg',panel:document.querySelector('#pipelineImagePanel'),drag:document.querySelector('#pipelineImageDrag'),importButton:document.querySelector('#pipelineImageImport'),fileInput:document.querySelector('#pipelineImageFileInput'),save:document.querySelector('#pipelineImageSave'),refresh:document.querySelector('#pipelineImageRefresh'),resize:document.querySelector('#pipelineImageResize'),title:document.querySelector('#pipelineImageName'),path:document.querySelector('#pipelineImagePath'),canvas:document.querySelector('#pipelineImageCanvas'),image:document.querySelector('#pipelineImage'),status:document.querySelector('#pipelineImageStatus'),dirty:false,sourceLabel:'',currentName:'',viewer:{active:false,scale:1,x:0,y:0,dragging:false,pointerX:0,pointerY:0},layout:{x:1175,y:1180,width:900,height:260,baseX:1175,baseY:1180,baseWidth:900,baseHeight:260}
+  extension:'.svg',panel:document.querySelector('#pipelineImagePanel'),drag:document.querySelector('#pipelineImageDrag'),importButton:document.querySelector('#pipelineImageImport'),fileInput:document.querySelector('#pipelineImageFileInput'),save:document.querySelector('#pipelineImageSave'),refresh:document.querySelector('#pipelineImageRefresh'),resize:document.querySelector('#pipelineImageResize'),title:document.querySelector('#pipelineImageName'),path:document.querySelector('#pipelineImagePath'),canvas:document.querySelector('#pipelineImageCanvas'),image:document.querySelector('#pipelineImage'),status:document.querySelector('#pipelineImageStatus'),dirty:false,sourceLabel:'',currentName:'',viewer:{active:false,scale:1,x:0,y:0,dragging:false,pointerX:0,pointerY:0},layout:{x:2099.23,y:345.457,width:1142.54,height:722.874,baseX:2099.23,baseY:345.457,baseWidth:1142.54,baseHeight:722.874}
 };
 const cells = [];
 const pipelineNodes = [];
@@ -313,7 +324,7 @@ function configureResolutionRules() {
 function svgElement(name,attributes={}) { const node=document.createElementNS('http://www.w3.org/2000/svg',name);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));return node; }
 function addText(group,text,x,y,options={}) { const node=svgElement('text',{x,y,'text-anchor':options.anchor||'middle','font-family':'Helvetica','font-size':options.size||11,fill:options.fill||'#000','font-weight':options.weight||'normal'});node.textContent=text;group.append(node);return node; }
 function addEditableDefinitionCell(parent,x,y,width,height,value) { const switchNode=svgElement('switch');const foreignObject=svgElement('foreignObject',{x:0,y:0,width:'100%',height:'100%'});const layout=document.createElementNS('http://www.w3.org/1999/xhtml','div');layout.setAttribute('style',`display:flex;align-items:center;justify-content:center;width:${width-2}px;height:1px;padding-top:${y+height/2}px;margin-left:${x+1}px;`);const box=document.createElementNS('http://www.w3.org/1999/xhtml','div');box.setAttribute('style','box-sizing:border-box;font-size:0;text-align:center;color:#000;');const editor=document.createElementNS('http://www.w3.org/1999/xhtml','div');editor.setAttribute('style','display:inline-block;width:100%;font-size:12px;font-family:Helvetica;line-height:1.2;white-space:normal;word-wrap:normal;');editor.textContent=value;box.append(editor);layout.append(box);foreignObject.append(layout);switchNode.append(foreignObject);addText(switchNode,value,x+width/2,y+height/2+4,{size:12});parent.append(switchNode); }
-function addSensorDefinition(svg) { if(svg.querySelector('[data-sensor-definition]'))return;const x=640,y=550,width=320,left=160,titleHeight=30,row1Height=45,row2Height=45;const container=svgElement('g',{'data-sensor-definition':'true','data-table-content':'sensor'}),group=svgElement('g');group.append(svgElement('rect',{x,y,width,height:titleHeight,fill:'#000',stroke:'#000'}));addText(group,'Sensor定义',x+width/2,y+20,{size:12,fill:'#fff',weight:'bold'});const row1Y=y+titleHeight,row2Y=row1Y+row1Height;group.append(svgElement('rect',{x,y:row1Y,width:left,height:row1Height,fill:'#ccc',stroke:'#000'}),svgElement('rect',{x:x+left,y:row1Y,width:width-left,height:row1Height,fill:'#fff',stroke:'#000'}),svgElement('rect',{x,y:row2Y,width:left,height:row2Height,fill:'#ccc',stroke:'#000'}),svgElement('rect',{x:x+left,y:row2Y,width:width-left,height:row2Height,fill:'#fff',stroke:'#000'}));addText(group,'ISP支持接入的bit位宽',x+left/2,row1Y+28,{size:12});addText(group,'常见的sensor类型',x+left/2,row2Y+28,{size:12});container.append(group);addEditableDefinitionCell(container,x+left,row1Y,width-left,row1Height,'10');addEditableDefinitionCell(container,x+left,row2Y,width-left,row2Height,'binning');svg.append(container); }
+function addSensorDefinition(svg) { if(svg.querySelector('[data-sensor-definition]'))return;const x=640,y=550,width=320,left=160,titleHeight=30,row1Height=45,row2Height=45;const container=svgElement('g',{'data-sensor-definition':'true','data-table-content':'sensor'}),group=svgElement('g');group.append(svgElement('rect',{x,y,width,height:titleHeight,fill:'#000',stroke:'#000'}));addText(group,'Sensor定义',x+width/2,y+20,{size:12,fill:'#fff',weight:'bold'});const row1Y=y+titleHeight,row2Y=row1Y+row1Height;group.append(svgElement('rect',{x,y:row1Y,width:left,height:row1Height,fill:'#ccc',stroke:'#000'}),svgElement('rect',{x:x+left,y:row1Y,width:width-left,height:row1Height,fill:'#fff',stroke:'#000'}),svgElement('rect',{x,y:row2Y,width:left,height:row2Height,fill:'#ccc',stroke:'#000'}),svgElement('rect',{x:x+left,y:row2Y,width:width-left,height:row2Height,fill:'#fff',stroke:'#000'}));addText(group,'ISP支持接入的bit位宽',x+left/2,row1Y+28,{size:12});addText(group,'常见的sensor类型',x+left/2,row2Y+28,{size:12});container.append(group);addEditableDefinitionCell(container,x+left,row1Y,width-left,row1Height,'10');addEditableDefinitionCell(container,x+left,row2Y,width-left,row2Height,'DCG-HDR');svg.append(container); }
 function nodePoint(node) { const foreignObject=node.querySelector?.('foreignObject');if(foreignObject)return{x:coordinate(foreignObject,'x'),y:coordinate(foreignObject,'y')};try{const box=node.getBBox();return{x:box.x+box.width/2,y:box.y+box.height/2};}catch{return null;} }
 function setGdcTableTitle(group,definition,geometry=definition) {
   const oldName=definition.id.endsWith('0')?'iq-gdc0配置':'iq-gdc1配置';
@@ -339,13 +350,15 @@ function prepareMovableTables(svg) {
     if(!group)continue;
     const background=svgElement('rect',{x:definition.x,y:definition.y,width:definition.width,height:definition.height,fill:'#f8fafc',stroke:'none','data-layout-background':'true'});group.insertBefore(background,group.firstChild);
     if(definition.id==='gdc0'||definition.id==='gdc1')setGdcTableTitle(group,definition);
-    layouts.push({...definition,defaultX:definition.x,defaultY:definition.y,baseX:definition.x,baseY:definition.y,baseWidth:definition.width,baseHeight:definition.height,element:group});
+    const defaults=definition.defaultLayout||definition;
+    layouts.push({...definition,defaultX:defaults.x,defaultY:defaults.y,defaultWidth:defaults.width,defaultHeight:defaults.height,baseX:definition.x,baseY:definition.y,baseWidth:definition.width,baseHeight:definition.height,element:group});
   }
   for(const definition of TABLE_DEFINITIONS.filter(item=>item.sourceId)){
     const source=layouts.find(layout=>layout.id===definition.sourceId);if(!source)continue;
     const group=source.element.cloneNode(true),geometry={x:source.baseX,y:source.baseY,width:source.baseWidth,height:source.baseHeight};
     group.dataset.tableContent=definition.id;setGdcTableTitle(group,definition,geometry);root?.append(group);
-    layouts.push({...definition,defaultX:definition.x,defaultY:definition.y,baseX:geometry.x,baseY:geometry.y,baseWidth:geometry.width,baseHeight:geometry.height,element:group});
+    const defaults=definition.defaultLayout||definition;
+    layouts.push({...definition,defaultX:defaults.x,defaultY:defaults.y,defaultWidth:defaults.width,defaultHeight:defaults.height,baseX:geometry.x,baseY:geometry.y,baseWidth:geometry.width,baseHeight:geometry.height,element:group});
   }
   return layouts;
 }
@@ -365,14 +378,14 @@ function initializeTableControls() {
     layout.x=Number.isFinite(state.x)?state.x:layout.defaultX;
     layout.y=legacyGdc?state.y-30*legacyScale:(Number.isFinite(state.y)?state.y:layout.defaultY);
     const compactSensor=layout.id==='sensor'&&state.compactVersion!==SENSOR_LAYOUT_VERSION;if(compactSensor||legacyGdc)migrated=true;
-    layout.width=compactSensor?layout.baseWidth:(Number.isFinite(state.width)?state.width:layout.baseWidth);
+    layout.width=compactSensor?layout.defaultWidth:(Number.isFinite(state.width)?state.width:layout.defaultWidth);
     const legacyResolution=layout.id==='resolution'&&state.height===270;
-    layout.height=legacyGdc?(Number.isFinite(state.height)?state.height+30*legacyScale:layout.baseHeight):(compactSensor||legacyResolution?layout.baseHeight:(Number.isFinite(state.height)?state.height:layout.baseHeight));
+    layout.height=legacyGdc?(Number.isFinite(state.height)?state.height+30*legacyScale:layout.defaultHeight):(compactSensor||legacyResolution?layout.defaultHeight:(Number.isFinite(state.height)?state.height:layout.defaultHeight));
     const frame=document.createElement('div');frame.className='table-frame';frame.dataset.tableId=layout.id;const drag=document.createElement('button');drag.type='button';drag.className='table-drag-handle';drag.title=`拖动${layout.name}`;drag.setAttribute('aria-label',`拖动${layout.name}`);const resize=document.createElement('button');resize.type='button';resize.className='table-resize-handle';resize.title=`调整${layout.name}大小`;resize.setAttribute('aria-label',`调整${layout.name}大小`);frame.append(drag,resize);tableControls.append(frame);layout.frame=frame;drag.addEventListener('pointerdown',(event)=>beginLayoutPointer(event,layout,'move'));resize.addEventListener('pointerdown',(event)=>beginLayoutPointer(event,layout,'resize'));renderTableLayout(layout);
   }
   if(migrated)saveLayouts();
 }
-function resetTableLayouts() { localStorage.removeItem(LAYOUT_KEY);for(const layout of tableLayouts){layout.x=layout.defaultX;layout.y=layout.defaultY;layout.width=layout.baseWidth;layout.height=layout.baseHeight;renderTableLayout(layout);} }
+function resetTableLayouts() { localStorage.removeItem(LAYOUT_KEY);for(const layout of tableLayouts){layout.x=layout.defaultX;layout.y=layout.defaultY;layout.width=layout.defaultWidth;layout.height=layout.defaultHeight;renderTableLayout(layout);} }
 function readF2mTriggerLayout() { try{return JSON.parse(localStorage.getItem(F2M_TRIGGER_LAYOUT_KEY))||{};}catch{return{};} }
 function renderF2mTriggerLayout() { f2mTriggerControl.style.left=`${f2mTriggerLayout.x}px`;f2mTriggerControl.style.top=`${f2mTriggerLayout.y}px`; }
 function saveF2mTriggerLayout() { localStorage.setItem(F2M_TRIGGER_LAYOUT_KEY,JSON.stringify({x:f2mTriggerLayout.x,y:f2mTriggerLayout.y})); }
@@ -468,7 +481,8 @@ function bindCells(svg) {
   for(const foreignObject of svg.querySelectorAll('foreignObject')) { const x=coordinate(foreignObject,'x'),y=coordinate(foreignObject,'y'); if(y<TABLE_START_Y)continue; const editor=foreignObject.querySelector('div > div > div'); if(!editor)continue; const fallback=foreignObject.closest('switch')?.querySelector('text')||null,tableId=foreignObject.closest('[data-table-content]')?.dataset.tableContent||'',scope=tableId.startsWith('subgdc')?tableId:'',key=`${scope?`${scope}:`:''}${x}:${y}`,sourceDefault=normalizeMultiline(editor.innerText),defaultValue=DEFAULT_CELL_VALUES[key]??sourceDefault,layout=scope?tableLayouts.find(item=>item.id===scope):null,sortY=y+(layout?layout.defaultY-layout.baseY:0);if(defaultValue!==sourceDefault)editor.innerText=defaultValue;const cell={x,y,sortY,scope,tableId,editor,fallback,foreignObject,defaultValue,value:defaultValue,config:null,partValues:null,disabled:false,dimensionInputs:null}; cells.push(cell); foreignObject.classList.add('editable-cell'); editor.contentEditable='true'; editor.tabIndex=0; editor.spellcheck=false; editor.setAttribute('role','textbox'); editor.setAttribute('aria-label',`编辑${scope?'sub ':''}表格单元格：${defaultValue||`${x},${y}`}`); editor.addEventListener('pointerdown',(event)=>{if(editor.getAttribute('contenteditable')==='true'){event.stopPropagation();editor.focus();}}); const saved=draft[keyFor(cell)]; if(typeof saved==='string')updateCell(cell,saved,false);else if(defaultValue!==sourceDefault||defaultValue.includes('\n'))updateFallback(fallback,defaultValue); editor.addEventListener('input',()=>captureCellInput(cell)); editor.addEventListener('keydown',(event)=>handleCellKeydown(cell,event)); }
   cells.sort((a,b)=>a.sortY-b.sortY||a.x-b.x); cells.forEach(configureCell);cells.forEach(configureDimensionCell);cells.forEach(configureDisabledSubCell);configureResolutionRules(); saveStatus.textContent=Object.keys(draft).length?'已恢复本地表格':'表格自动保存';
 }
-function resetTable() { for(const cell of cells){ updateCell(cell,cell.defaultValue,false); if(cell.config)normalizeConfiguredCell(cell); }resetPipelineNodes();calculateResolutionRules(false);resetTableLayouts();resetF2mTriggerLayout();resetTextFileLayouts();resetPipelineImageLayout();saveDraft();showToast('表格、流程模块和布局已恢复默认值'); }
+function resetTitle() { pageTitle.textContent=DEFAULT_TITLE;localStorage.setItem(TITLE_KEY,DEFAULT_TITLE);document.title=DEFAULT_TITLE; }
+function resetTable() { resetTitle();for(const cell of cells){ updateCell(cell,cell.defaultValue,false); if(cell.config)normalizeConfiguredCell(cell); }resetPipelineNodes();calculateResolutionRules(false);resetTableLayouts();resetF2mTriggerLayout();resetTextFileLayouts();resetPipelineImageLayout();saveDraft();showToast('标题、表格、流程模块和布局已恢复默认值'); }
 function exportBounds() {
   const padding=20,items=[
     ...tableLayouts,
