@@ -4,20 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f5f7f9">
-  <title>4K30 16:9 Normal 2path Mutil-scale preview</title>
-  <link rel="stylesheet" href="styles.css?v=20260726-49">
+  <title>4K30 16:9 Normal 1path3scale 2path3scale preview</title>
+  <link rel="stylesheet" href="styles.css?v=20260726-51">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <span class="status-dot" aria-hidden="true"></span>
       <div>
-        <h1 id="pageTitle" contenteditable="true" spellcheck="false" aria-label="编辑页面标题">4K30 16:9 Normal 2path Mutil-scale preview</h1>
+        <h1 id="pageTitle" contenteditable="true" spellcheck="false" aria-label="编辑页面标题">4K30 16:9 Normal 1path3scale 2path3scale preview</h1>
         <p id="saveStatus">表格自动保存</p>
       </div>
     </div>
     <nav class="toolbar" aria-label="表格与画布工具">
       <button id="resetTable" class="tool-button" type="button" title="恢复表格默认值"><span class="reset-icon" aria-hidden="true"></span><span>复位</span></button>
+      <button id="pipelineStrike" class="icon-button" type="button" title="切换流程模块横线" aria-label="切换流程模块横线" aria-pressed="false" disabled><span class="strike-icon" aria-hidden="true">S</span></button>
       <span class="divider" aria-hidden="true"></span>
       <button id="zoomOut" class="icon-button" type="button" title="缩小" aria-label="缩小">−</button>
       <output id="zoomValue" class="zoom-value" aria-live="polite">100%</output>
@@ -96,6 +97,6 @@
     <pre id="f2mLog" aria-live="polite"></pre>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260726-60"></script>
+  <script src="app.js?v=20260726-66"></script>
 </body>
 </html>

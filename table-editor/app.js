@@ -1,5 +1,5 @@
 const SIZE = { width: 1161, height: 1601 };
-const DEFAULT_TITLE = '4K30 16:9 Normal 2path Mutil-scale preview';
+const DEFAULT_TITLE = '4K30 16:9 Normal 1path3scale 2path3scale preview';
 const STORAGE_KEY = '4k30-table-editor-v1';
 const TITLE_KEY = '4k30-table-editor-title-v1';
 const LAYOUT_KEY = '4k30-table-layout-v2';
@@ -7,6 +7,31 @@ const F2M_TRIGGER_LAYOUT_KEY = '4k30-f2m-trigger-layout-v1';
 const IMC_CODE_LAYOUT_KEY = '4k30-imc-code-layout-v1';
 const SCRIPT_CODE_LAYOUT_KEY = '4k30-script-code-layout-v1';
 const PIPELINE_IMAGE_LAYOUT_KEY = '4k30-pipeline-image-layout-v1';
+const PIPELINE_NODE_STORAGE_KEY = '4k30-pipeline-nodes-v1';
+const PIPELINE_NODE_MODE_RULES = new Map([
+  ['470:74',{path:1,minScale:1}],['540:74',{path:1,minScale:1}],['645:74',{path:1,minScale:1}],
+  ['470:124',{path:1,minScale:2}],['540:124',{path:1,minScale:2}],['645:124',{path:1,minScale:2}],
+  ['470:174',{path:1,minScale:3}],['540:174',{path:1,minScale:3}],['645:174',{path:1,minScale:3}],
+  ['770:74',{path:2,minScale:1}],['840:74',{path:2,minScale:1}],['945:74',{path:2,minScale:1}],
+  ['770:124',{path:2,minScale:2}],['840:124',{path:2,minScale:2}],['945:124',{path:2,minScale:2}],
+  ['770:174',{path:2,minScale:3}],['840:174',{path:2,minScale:3}],['945:174',{path:2,minScale:3}]
+]);
+const PIPELINE_CONNECTOR_RULES = new Map([
+  ['M 490 70 L 515.53 70',{path:1,minScale:1}],['M 560 70 L 585.53 70',{path:1,minScale:1}],
+  ['M 560 120 L 585.53 120',{path:1,minScale:2}],['M 645 100 L 645 92.24',{path:1,minScale:2}],
+  ['M 560 170 L 585.53 170',{path:1,minScale:3}],['M 645 150 L 645 142.24',{path:1,minScale:3}],
+  ['M 790 70 L 815.53 70',{path:2,minScale:1}],['M 860 70 L 885.53 70',{path:2,minScale:1}],
+  ['M 860 120 L 885.53 120',{path:2,minScale:2}],['M 860 170 L 885.53 170',{path:2,minScale:3}],
+  ['M 945 100 L 945 92.24',{path:2,minScale:2}],['M 945 150 L 945 142.24',{path:2,minScale:3}]
+]);
+const SPLIT_PIPELINE_CONNECTORS = new Map([
+  ['M 420 70 L 430 70 L 430 120 L 515.53 120',{shared:'M 420 70 L 430 70',segments:['M 430 70 L 430 120 L 515.53 120'],path:1,minScale:2}],
+  ['M 420 70 L 430 70 L 430 170 L 515.53 170',{shared:'M 420 70 L 430 70',segments:['M 430 120 L 430 170 L 515.53 170'],path:1,minScale:3}],
+  ['M 700 70 L 745.53 70',{shared:'M 700 70 L 730 70',segments:['M 730 70 L 745.53 70'],path:2,minScale:1}],
+  ['M 720 70 L 730 70 L 730 120 L 815.53 120',{shared:'M 720 70 L 730 70',segments:['M 730 70 L 730 120 L 750 120','M 790 120 L 815.53 120'],path:2,minScale:2}],
+  ['M 700 70 L 730 70 L 730 170 L 815.53 170',{shared:'M 700 70 L 730 70',segments:['M 730 120 L 730 170 L 750 170','M 790 170 L 815.53 170'],path:2,minScale:3}]
+]);
+const PIPELINE_JUNCTIONS = [{x:430,y:70},{x:430,y:120},{x:730,y:70},{x:730,y:120}];
 const TABLE_START_Y = 250;
 const TABLE_DEFINITIONS = [
   { id:'pipeline',name:'流程图',x:0,y:0,width:1160,height:240 },
@@ -81,6 +106,7 @@ const diagram = document.querySelector('#diagram');
 const zoomValue = document.querySelector('#zoomValue');
 const saveStatus = document.querySelector('#saveStatus');
 const pageTitle = document.querySelector('#pageTitle');
+const pipelineStrikeButton = document.querySelector('#pipelineStrike');
 const fieldMenu = document.querySelector('#fieldMenu');
 const toast = document.querySelector('#toast');
 const tableControls = document.querySelector('#tableControls');
@@ -100,8 +126,11 @@ const pipelineImageModule = {
   extension:'.svg',panel:document.querySelector('#pipelineImagePanel'),drag:document.querySelector('#pipelineImageDrag'),importButton:document.querySelector('#pipelineImageImport'),fileInput:document.querySelector('#pipelineImageFileInput'),save:document.querySelector('#pipelineImageSave'),refresh:document.querySelector('#pipelineImageRefresh'),resize:document.querySelector('#pipelineImageResize'),title:document.querySelector('#pipelineImageName'),path:document.querySelector('#pipelineImagePath'),canvas:document.querySelector('#pipelineImageCanvas'),image:document.querySelector('#pipelineImage'),status:document.querySelector('#pipelineImageStatus'),dirty:false,sourceLabel:'',currentName:'',viewer:{active:false,scale:1,x:0,y:0,dragging:false,pointerX:0,pointerY:0},layout:{x:1175,y:1180,width:900,height:260,baseX:1175,baseY:1180,baseWidth:900,baseHeight:260}
 };
 const cells = [];
+const pipelineNodes = [];
+const pipelineConnectors = [];
 const exportFallbackStyles = new Map();
 let activeCell = null;
+let activePipelineNode = null;
 let toastTimer;
 let tableLayouts=[];
 let freeModuleZIndex=20;
@@ -130,6 +159,44 @@ function updateFallback(fallback,value) {
 function wrapExportValueAfterComma(value,commaNumber) { const text=normalizeMultiline(value);if(text.includes('\n'))return text;let seen=0;for(let index=0;index<text.length;index++){if(text[index]!==',')continue;seen++;if(seen===commaNumber)return`${text.slice(0,index+1)}\n${text.slice(index+1).trimStart()}`;}return text; }
 function isGdc0ScaleRatioCell(cell) { return(cell.tableId==='gdc0'||cell.tableId==='subgdc0')&&cell.y===980&&cell.x!==1; }
 function exportValueForCell(cell) { const key=keyFor(cell);if(WRAPPED_F2M_EXPORT_KEYS.has(key))return wrapExportValueAfterComma(cell.value,2);if(isGdc0ScaleRatioCell(cell))return wrapExportValueAfterComma(cell.value,1);return cell.value; }
+function pipelineNodeKey(fallback) { return`${Math.round(Number.parseFloat(fallback.getAttribute('x')||'0'))}:${Math.round(Number.parseFloat(fallback.getAttribute('y')||'0'))}`; }
+function readPipelineNodeDraft() { try{return JSON.parse(localStorage.getItem(PIPELINE_NODE_STORAGE_KEY))||{};}catch{return{};} }
+function savePipelineNodeDraft() { localStorage.setItem(PIPELINE_NODE_STORAGE_KEY,JSON.stringify(Object.fromEntries(pipelineNodes.map(node=>[node.key,{name:node.value,struck:node.struck}]))));saveStatus.textContent='已自动保存'; }
+function restoreElementAttributes(element,snapshot) { for(const [name,value] of Object.entries(snapshot)){if(value===null)element.removeAttribute(name);else element.setAttribute(name,value);} }
+function renderPipelineNode(node,restoreMarkup=false) {
+  if(restoreMarkup&&node.value===node.defaultValue)node.editor.innerHTML=node.defaultHtml;else if(normalize(node.editor.innerText)!==node.value)node.editor.textContent=node.value;
+  node.foreignObject.classList.toggle('pipeline-node-struck',node.struck);node.fallback.textContent=node.value;
+  if(node.struck)node.fallback.setAttribute('text-decoration','line-through');else node.fallback.removeAttribute('text-decoration');
+  node.editor.setAttribute('aria-label',`编辑流程模块：${node.value||node.defaultValue}`);
+}
+function setActivePipelineNode(node) { if(activePipelineNode===node)return;if(activePipelineNode)activePipelineNode.foreignObject.classList.remove('pipeline-node-active');activePipelineNode=node;if(node)node.foreignObject.classList.add('pipeline-node-active');pipelineStrikeButton.disabled=!node;pipelineStrikeButton.setAttribute('aria-pressed',String(Boolean(node?.struck))); }
+function togglePipelineNodeStrike() { if(!activePipelineNode)return;activePipelineNode.struck=!activePipelineNode.struck;renderPipelineNode(activePipelineNode);pipelineStrikeButton.setAttribute('aria-pressed',String(activePipelineNode.struck));savePipelineNodeDraft(); }
+function setPipelineNodeDisabledState(node,disabled) {
+  node.foreignObject.classList.toggle('pipeline-node-auto-disabled',disabled);
+  if(node.shape){if(disabled){node.shape.setAttribute('fill','#e5e7e9');node.shape.setAttribute('stroke','#a4aab0');node.shape.style.fill='#e5e7e9';node.shape.style.stroke='#a4aab0';}else restoreElementAttributes(node.shape,node.shapeBase);}
+  if(disabled){node.fallback.setAttribute('fill','#8a9199');node.fallback.style.fill='#8a9199';}else restoreElementAttributes(node.fallback,node.fallbackPaintBase);
+}
+function setPipelineConnectorDisabledState(connector,disabled) {
+  connector.paths.forEach((path,index)=>{if(disabled){path.setAttribute('stroke','#8a9199');path.style.stroke='#8a9199';if(index===0){path.setAttribute('stroke-dasharray','5 4');path.style.strokeDasharray='5 4';}}else restoreElementAttributes(path,connector.base[index]);});
+}
+function titlePathScales() { const modes={1:null,2:null};for(const match of pageTitle.textContent.matchAll(/([12])\s*path\s*([123])\s*scale/ig))modes[Number(match[1])]=Number(match[2]);if(modes[1]===null&&modes[2]===null)return{1:3,2:3};return modes; }
+function applyPipelineModes() { const scales=titlePathScales();for(const node of pipelineNodes){const rule=PIPELINE_NODE_MODE_RULES.get(node.key);setPipelineNodeDisabledState(node,Boolean(rule)&&((scales[rule.path]??0)<rule.minScale));}for(const connector of pipelineConnectors)setPipelineConnectorDisabledState(connector,(scales[connector.path]??0)<connector.minScale); }
+function addPipelineJunctions(group) { for(const point of PIPELINE_JUNCTIONS){const marker=document.createElementNS('http://www.w3.org/2000/svg','circle');marker.setAttribute('cx',String(point.x));marker.setAttribute('cy',String(point.y));marker.setAttribute('r','3');marker.setAttribute('fill','#000000');marker.setAttribute('pointer-events','none');marker.dataset.pipelineJunction='';group.append(marker);} }
+function bindPipelineNodes(svg) {
+  pipelineNodes.length=0;pipelineConnectors.length=0;const group=svg.querySelector('[data-table-content="pipeline"]');if(!group)return;const draft=readPipelineNodeDraft(),rects=[...group.querySelectorAll('rect')];
+  for(const foreignObject of group.querySelectorAll('foreignObject')){
+    const editor=foreignObject.querySelector('div > div > div'),fallback=foreignObject.closest('switch')?.querySelector('text');if(!editor||!fallback)continue;const x=Math.round(Number.parseFloat(fallback.getAttribute('x')||'0')),y=Math.round(Number.parseFloat(fallback.getAttribute('y')||'0'));if(y>=200)continue;
+    const key=`${x}:${y}`,defaultValue=normalize(editor.innerText),defaultStruck=Boolean(editor.querySelector('strike,s,del'));for(const struck of [...editor.querySelectorAll('strike,s,del')])struck.replaceWith(...struck.childNodes);const defaultHtml=editor.innerHTML,saved=draft[key],value=typeof saved?.name==='string'?normalize(saved.name):defaultValue,struck=typeof saved?.struck==='boolean'?saved.struck:defaultStruck,pointY=y-4;
+    const shape=rects.filter(rect=>{const rx=Number.parseFloat(rect.getAttribute('x')),ry=Number.parseFloat(rect.getAttribute('y')),width=Number.parseFloat(rect.getAttribute('width')),height=Number.parseFloat(rect.getAttribute('height'));return Number.isFinite(rx)&&Number.isFinite(ry)&&Number.isFinite(width)&&Number.isFinite(height)&&rect.getAttribute('fill')!=='none'&&x>=rx&&x<=rx+width&&pointY>=ry&&pointY<=ry+height;}).sort((a,b)=>Number.parseFloat(a.getAttribute('width'))*Number.parseFloat(a.getAttribute('height'))-Number.parseFloat(b.getAttribute('width'))*Number.parseFloat(b.getAttribute('height')))[0]||null;
+    const node={key,x,y,editor,fallback,foreignObject,shape,shapeBase:shape?{fill:shape.getAttribute('fill'),stroke:shape.getAttribute('stroke'),style:shape.getAttribute('style')}:null,fallbackPaintBase:{fill:fallback.getAttribute('fill'),style:fallback.getAttribute('style')},defaultValue,defaultStruck,defaultHtml,value:value||defaultValue,struck};pipelineNodes.push(node);foreignObject.classList.add('pipeline-node-label');foreignObject.dataset.pipelineNodeKey=key;editor.contentEditable='true';editor.spellcheck=false;editor.tabIndex=0;editor.setAttribute('role','textbox');renderPipelineNode(node,true);
+    editor.addEventListener('pointerdown',(event)=>{event.stopPropagation();setActivePipelineNode(node);});editor.addEventListener('focus',()=>setActivePipelineNode(node));editor.addEventListener('input',()=>{node.value=normalize(editor.innerText);node.fallback.textContent=node.value;node.editor.setAttribute('aria-label',`编辑流程模块：${node.value||node.defaultValue}`);savePipelineNodeDraft();});editor.addEventListener('blur',()=>{node.value=normalize(editor.innerText)||node.defaultValue;renderPipelineNode(node,true);savePipelineNodeDraft();});editor.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();editor.blur();}else if(event.key==='Escape'){event.preventDefault();node.value=normalize(editor.innerText)||node.defaultValue;renderPipelineNode(node,true);editor.blur();}});
+  }
+  for(const [sourceD,parts] of SPLIT_PIPELINE_CONNECTORS){const source=[...group.querySelectorAll('path')].find(path=>path.getAttribute('d')===sourceD);if(!source)continue;const arrow=[...source.parentElement.querySelectorAll(':scope > path')].find(path=>path!==source);source.setAttribute('d',parts.shared);let previous=source;parts.segments.forEach((d,index)=>{const segment=source.cloneNode(false);segment.setAttribute('d',d);previous.after(segment);previous=segment;const paths=index===parts.segments.length-1?[segment,arrow].filter(Boolean):[segment];pipelineConnectors.push({paths,base:paths.map(item=>({stroke:item.getAttribute('stroke'),'stroke-dasharray':item.getAttribute('stroke-dasharray'),style:item.getAttribute('style')})),path:parts.path,minScale:parts.minScale});});}
+  for(const path of group.querySelectorAll('path')){const rule=PIPELINE_CONNECTOR_RULES.get(path.getAttribute('d'));if(!rule)continue;const paths=[...path.parentElement.querySelectorAll(':scope > path')];pipelineConnectors.push({paths,base:paths.map(item=>({stroke:item.getAttribute('stroke'),'stroke-dasharray':item.getAttribute('stroke-dasharray'),style:item.getAttribute('style')})),...rule});}
+  addPipelineJunctions(group);
+  applyPipelineModes();
+}
+function resetPipelineNodes() { localStorage.removeItem(PIPELINE_NODE_STORAGE_KEY);for(const node of pipelineNodes){node.value=node.defaultValue;node.struck=node.defaultStruck;renderPipelineNode(node,true);}setActivePipelineNode(null);applyPipelineModes(); }
 function syncDimensionInputs(cell) { const dimensions=parseDimensions(cell.value);cell.dimensionInputs.width.value=dimensions?String(dimensions.width):'';cell.dimensionInputs.height.value=dimensions?String(dimensions.height):''; }
 function updateCell(cell,value,save=true) { cell.value=String(value); if(cell.dimensionInputs)syncDimensionInputs(cell);else if(cell.editor.innerText!==cell.value)cell.editor.innerText=cell.value; updateFallback(cell.fallback,cell.value); if(save) saveDraft(); }
 function captureCellInput(cell) { if(cell.dimensionInputs){const width=cell.dimensionInputs.width.value.trim(),height=cell.dimensionInputs.height.value.trim();cell.value=`w:${width}\nh:${height}`;}else cell.value=normalizeMultiline(cell.editor.innerText);updateFallback(cell.fallback,cell.value);saveDraft(); }
@@ -401,7 +468,7 @@ function bindCells(svg) {
   for(const foreignObject of svg.querySelectorAll('foreignObject')) { const x=coordinate(foreignObject,'x'),y=coordinate(foreignObject,'y'); if(y<TABLE_START_Y)continue; const editor=foreignObject.querySelector('div > div > div'); if(!editor)continue; const fallback=foreignObject.closest('switch')?.querySelector('text')||null,tableId=foreignObject.closest('[data-table-content]')?.dataset.tableContent||'',scope=tableId.startsWith('subgdc')?tableId:'',key=`${scope?`${scope}:`:''}${x}:${y}`,sourceDefault=normalizeMultiline(editor.innerText),defaultValue=DEFAULT_CELL_VALUES[key]??sourceDefault,layout=scope?tableLayouts.find(item=>item.id===scope):null,sortY=y+(layout?layout.defaultY-layout.baseY:0);if(defaultValue!==sourceDefault)editor.innerText=defaultValue;const cell={x,y,sortY,scope,tableId,editor,fallback,foreignObject,defaultValue,value:defaultValue,config:null,partValues:null,disabled:false,dimensionInputs:null}; cells.push(cell); foreignObject.classList.add('editable-cell'); editor.contentEditable='true'; editor.tabIndex=0; editor.spellcheck=false; editor.setAttribute('role','textbox'); editor.setAttribute('aria-label',`编辑${scope?'sub ':''}表格单元格：${defaultValue||`${x},${y}`}`); editor.addEventListener('pointerdown',(event)=>{if(editor.getAttribute('contenteditable')==='true'){event.stopPropagation();editor.focus();}}); const saved=draft[keyFor(cell)]; if(typeof saved==='string')updateCell(cell,saved,false);else if(defaultValue!==sourceDefault||defaultValue.includes('\n'))updateFallback(fallback,defaultValue); editor.addEventListener('input',()=>captureCellInput(cell)); editor.addEventListener('keydown',(event)=>handleCellKeydown(cell,event)); }
   cells.sort((a,b)=>a.sortY-b.sortY||a.x-b.x); cells.forEach(configureCell);cells.forEach(configureDimensionCell);cells.forEach(configureDisabledSubCell);configureResolutionRules(); saveStatus.textContent=Object.keys(draft).length?'已恢复本地表格':'表格自动保存';
 }
-function resetTable() { for(const cell of cells){ updateCell(cell,cell.defaultValue,false); if(cell.config)normalizeConfiguredCell(cell); } calculateResolutionRules(false);resetTableLayouts();resetF2mTriggerLayout();resetTextFileLayouts();resetPipelineImageLayout();saveDraft();showToast('表格内容和布局已恢复默认值'); }
+function resetTable() { for(const cell of cells){ updateCell(cell,cell.defaultValue,false); if(cell.config)normalizeConfiguredCell(cell); }resetPipelineNodes();calculateResolutionRules(false);resetTableLayouts();resetF2mTriggerLayout();resetTextFileLayouts();resetPipelineImageLayout();saveDraft();showToast('表格、流程模块和布局已恢复默认值'); }
 function exportBounds() {
   const padding=20,items=[
     ...tableLayouts,
@@ -459,10 +526,12 @@ async function exportPng() {
   try{const canvas=await renderExportCanvas(),png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!png)throw new Error('无法生成 PNG');download(png,'4k30-normal-preview.png');showToast('已导出全部模块');}
   catch(error){console.error(error);showToast('图片导出失败');}
 }
-async function load() { if(location.protocol==='file:')throw new Error('FILE_PROTOCOL');const response=await fetch('../assets/4k30-normal-preview.svg');if(!response.ok)throw new Error();diagram.innerHTML=await response.text();const svg=diagram.querySelector('svg');svg.removeAttribute('width');svg.removeAttribute('height');svg.setAttribute('viewBox',`-.5 -.5 ${SIZE.width} ${SIZE.height}`);addSensorDefinition(svg);tableLayouts=prepareMovableTables(svg);bindCells(svg);initializeTableControls();initializeF2mTrigger();initializeTextFileModules();initializePipelineImageModule();fitToView(); }
-function bindTitle() { const saved=localStorage.getItem(TITLE_KEY),legacyDefaults=new Set(['4K30 Normal Preview','4K30 16:9 Normal 2path Multi-scale Preview','4K30 16:9 Normal 2path Multi-scale\u00a0Preview']);pageTitle.textContent=saved&&!legacyDefaults.has(saved)?saved:DEFAULT_TITLE;document.title=pageTitle.textContent.trim()||DEFAULT_TITLE;pageTitle.addEventListener('input',()=>{const value=pageTitle.textContent.trim();localStorage.setItem(TITLE_KEY,value);document.title=value||DEFAULT_TITLE;if(cells.length)calculateResolutionRules();saveStatus.textContent='已自动保存';});pageTitle.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();pageTitle.blur();}}); }
+async function load() { if(location.protocol==='file:')throw new Error('FILE_PROTOCOL');const response=await fetch('../assets/4k30-normal-preview.svg');if(!response.ok)throw new Error();diagram.innerHTML=await response.text();const svg=diagram.querySelector('svg');svg.removeAttribute('width');svg.removeAttribute('height');svg.setAttribute('viewBox',`-.5 -.5 ${SIZE.width} ${SIZE.height}`);addSensorDefinition(svg);tableLayouts=prepareMovableTables(svg);bindPipelineNodes(svg);bindCells(svg);initializeTableControls();initializeF2mTrigger();initializeTextFileModules();initializePipelineImageModule();fitToView(); }
+function normalizeTitleModes(value) { return String(value||'').replace(/(?:Mutil|Multi)-\s*scale/ig,'3scale').replace(/([12])\s*path\s*([123])\s*scale/ig,'$1path$2scale'); }
+function migrateLegacyTitle(value) { const normalized=normalizeTitleModes(value),path1=/1path([123])scale/i.test(normalized),path2=normalized.match(/2path([123])scale/i);return!path1&&path2?normalized.replace(path2[0],`1path${path2[1]}scale ${path2[0]}`):normalized; }
+function bindTitle() { const saved=localStorage.getItem(TITLE_KEY),legacyDefaults=new Set(['4K30 Normal Preview','4K30 16:9 Normal 2path Multi-scale Preview','4K30 16:9 Normal 2path Multi-scale\u00a0Preview']),migrated=migrateLegacyTitle(saved),value=saved&&!legacyDefaults.has(saved)?migrated:DEFAULT_TITLE;pageTitle.textContent=value||DEFAULT_TITLE;if(saved!==pageTitle.textContent)localStorage.setItem(TITLE_KEY,pageTitle.textContent);document.title=pageTitle.textContent.trim()||DEFAULT_TITLE;pageTitle.addEventListener('input',()=>{const next=pageTitle.textContent.trim();localStorage.setItem(TITLE_KEY,next);document.title=next||DEFAULT_TITLE;if(cells.length)calculateResolutionRules();if(pipelineNodes.length)applyPipelineModes();saveStatus.textContent='已自动保存';});pageTitle.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();pageTitle.textContent=normalizeTitleModes(pageTitle.textContent.trim())||DEFAULT_TITLE;pageTitle.dispatchEvent(new InputEvent('input',{bubbles:true}));pageTitle.blur();}}); }
 viewport.addEventListener('wheel',(event)=>{event.preventDefault();closeMenu();zoomAt(view.scale*Math.exp(-event.deltaY*.0012),event.clientX,event.clientY);},{passive:false});
-viewport.addEventListener('pointerdown',(event)=>{if(event.target.closest('[contenteditable=true],.option-cell,.numeric-cell')){activateFrame(null);return;}const contentGroup=event.composedPath().find(node=>node?.dataset?.tableContent);if(contentGroup){const layout=tableLayouts.find(item=>item.id===contentGroup.dataset.tableContent);if(layout)activateFrame(layout.frame);return;}activateFrame(null);closeMenu();view.dragging=true;view.pointerX=event.clientX;view.pointerY=event.clientY;viewport.classList.add('dragging');viewport.setPointerCapture(event.pointerId);});
+viewport.addEventListener('pointerdown',(event)=>{if(!event.target.closest('.pipeline-node-label'))setActivePipelineNode(null);if(event.target.closest('[contenteditable=true],.option-cell,.numeric-cell')){activateFrame(null);return;}const contentGroup=event.composedPath().find(node=>node?.dataset?.tableContent);if(contentGroup){const layout=tableLayouts.find(item=>item.id===contentGroup.dataset.tableContent);if(layout)activateFrame(layout.frame);return;}activateFrame(null);closeMenu();view.dragging=true;view.pointerX=event.clientX;view.pointerY=event.clientY;viewport.classList.add('dragging');viewport.setPointerCapture(event.pointerId);});
 viewport.addEventListener('pointermove',(event)=>{if(!view.dragging)return;view.x+=event.clientX-view.pointerX;view.y+=event.clientY-view.pointerY;view.pointerX=event.clientX;view.pointerY=event.clientY;renderView();});
 function stopDrag(event){view.dragging=false;viewport.classList.remove('dragging');if(event.pointerId!==undefined&&viewport.hasPointerCapture(event.pointerId))viewport.releasePointerCapture(event.pointerId);}viewport.addEventListener('pointerup',stopDrag);viewport.addEventListener('pointercancel',stopDrag);
-document.addEventListener('click',(event)=>{if(!fieldMenu.contains(event.target))closeMenu();});document.querySelector('#zoomIn').addEventListener('click',()=>zoomCenter(1.2));document.querySelector('#zoomOut').addEventListener('click',()=>zoomCenter(1/1.2));document.querySelector('#fitView').addEventListener('click',fitToView);document.querySelector('#fullscreen').addEventListener('click',async()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());document.querySelector('#exportPng').addEventListener('click',exportPng);document.querySelector('#resetTable').addEventListener('click',()=>{if(confirm('恢复所有表格单元格的默认值？'))resetTable();});window.addEventListener('resize',fitToView);bindTitle();setTimeout(()=>document.querySelector('.canvas-hint').style.opacity='0',4200);load().catch((error)=>{if(error.message==='FILE_PROTOCOL'){diagram.innerHTML='<div class="launch-notice"><strong>需要通过本地服务打开</strong><span>请双击上一级目录中的 start-table-editor.cmd</span></div>';return;}showToast('图表加载失败');});
+document.addEventListener('click',(event)=>{if(!fieldMenu.contains(event.target))closeMenu();});pipelineStrikeButton.addEventListener('click',togglePipelineNodeStrike);document.querySelector('#zoomIn').addEventListener('click',()=>zoomCenter(1.2));document.querySelector('#zoomOut').addEventListener('click',()=>zoomCenter(1/1.2));document.querySelector('#fitView').addEventListener('click',fitToView);document.querySelector('#fullscreen').addEventListener('click',async()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());document.querySelector('#exportPng').addEventListener('click',exportPng);document.querySelector('#resetTable').addEventListener('click',()=>{if(confirm('恢复表格、流程模块和布局的默认内容？'))resetTable();});window.addEventListener('resize',fitToView);bindTitle();setTimeout(()=>document.querySelector('.canvas-hint').style.opacity='0',4200);load().catch((error)=>{if(error.message==='FILE_PROTOCOL'){diagram.innerHTML='<div class="launch-notice"><strong>需要通过本地服务打开</strong><span>请双击上一级目录中的 start-table-editor.cmd</span></div>';return;}showToast('图表加载失败');});
