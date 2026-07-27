@@ -140,18 +140,9 @@ d1: [0.0, 0.0, 1.0, 1.0]
 
 导出以 2 倍画布比例渲染。GDC0 scale ratio 与特定 F2M ROI 会按既定可读性规则自动换行；这些规则只影响导出布局，不会改写页面中的原始编辑值。
 
-## 外部文件路径配置
+## 外部文件路径
 
-除 F2M 脚本外，其余外部文件路径可用环境变量覆盖。请在启动服务前设置：
-
-```powershell
-$env:IMC_OVERRIDE_SETTINGS_PATH = 'D:\project\imcoverridesettings.txt'
-$env:USECASE_SCRIPT_PATH = 'D:\project\usecase.sh'
-$env:PIPELINE_DIAGRAM_PATH = 'D:\project\pipeline.svg'
-python server.py --host 127.0.0.1 --port 4173
-```
-
-默认路径定义在 [server.py](server.py)。可访问以下地址检查当前服务实际使用的路径：
+外部 TXT、SH 和 SVG 的默认路径定义在 [server.py](server.py)。可访问以下地址检查当前服务实际使用的路径：
 
 ```text
 http://127.0.0.1:4173/api/health
