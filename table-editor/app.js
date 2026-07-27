@@ -1,5 +1,5 @@
 const SIZE = { width: 1161, height: 1601 };
-const DEFAULT_TITLE = '4K30 16:9 Normal 1path2scale 2path3scale preview';
+const DEFAULT_TITLE = '4K30 16:9 Normal 1path2scale 2path3scale\u00a0 preview';
 const STORAGE_KEY = '4k30-table-editor-v1';
 const TITLE_KEY = '4k30-table-editor-title-v1';
 const LAYOUT_KEY = '4k30-table-layout-v2';
