@@ -14,23 +14,24 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
-F2M_SCRIPT = Path(r"D:\work\A300\A300_Usecase\calc_mctf_f2m_roi_n_modified.py")
+A300_USECASE_ROOT = ROOT / "A300_Usecase"
+F2M_SCRIPT = ROOT / "calc_mctf_f2m_roi_n_modified.py"
 IMC_SETTINGS = Path(
     os.environ.get(
         "IMC_OVERRIDE_SETTINGS_PATH",
-        r"D:\work\A300\A380_iac4_实拍指南_20260116\dump-raw\normal\imcoverridesettings.txt",
+        A300_USECASE_ROOT / "imcoverridesettings(1).txt",
     )
 )
 USECASE_SCRIPT = Path(
     os.environ.get(
         "USECASE_SCRIPT_PATH",
-        r"D:\work\A300\A300_Usecase\3840x2176_30_ainr_yuvflow_eis_on_c10_sensormode42.sh",
+        A300_USECASE_ROOT / "3840x2176_30_ainr_yuvflow_eis_on_c10_sensormode42.sh",
     )
 )
 PIPELINE_DIAGRAM = Path(
     os.environ.get(
         "PIPELINE_DIAGRAM_PATH",
-        r"D:\work\A300\A300_Usecase\imcmctfnnnoainrpipeline.svg",
+        A300_USECASE_ROOT / "imcmctfnnnoainrpipeline.svg",
     )
 )
 EDITABLE_FILES = {

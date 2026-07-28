@@ -95,10 +95,10 @@ python server.py --host 127.0.0.1 --port 4173
 服务默认使用：
 
 ```text
-D:\work\A300\A300_Usecase\calc_mctf_f2m_roi_n_modified.py
+项目根目录\calc_mctf_f2m_roi_n_modified.py
 ```
 
-若路径不同，请修改 [server.py](server.py) 中的 `F2M_SCRIPT` 常量。脚本需支持以下参数：
+脚本随项目保存，无需配置外部绝对路径。脚本需支持以下参数：
 
 ```text
 --width <整数> --height <整数> --out <输出文件>
@@ -116,7 +116,7 @@ d1: [0.0, 0.0, 1.0, 1.0]
 
 | 模块 | 默认文件 | 可执行操作 |
 | --- | --- | --- |
-| IMC 覆盖配置 | `imcoverridesettings.txt` | 编辑、导入 TXT、保存、刷新、改名、拖动、调整大小 |
+| IMC 覆盖配置 | `imcoverridesettings(1).txt` | 编辑、导入 TXT、保存、刷新、改名、拖动、调整大小 |
 | Usecase 脚本 | `3840x2176_30_ainr_yuvflow_eis_on_c10_sensormode42.sh` | 编辑、导入 SH、保存、刷新、改名、拖动、调整大小 |
 | 外部流程图 | `imcmctfnnnoainrpipeline.svg` | 导入 SVG、改名保存、刷新、拖动、调整大小、双击全屏查看 |
 
@@ -142,7 +142,7 @@ d1: [0.0, 0.0, 1.0, 1.0]
 
 ## 外部文件路径
 
-外部 TXT、SH 和 SVG 的默认路径定义在 [server.py](server.py)。可访问以下地址检查当前服务实际使用的路径：
+F2M Python 脚本和 PDF 保存在项目根目录，TXT、SH 与 SVG 文件保存在项目内的 `A300_Usecase/` 目录；所有运行文件都不依赖项目外部的绝对目录。可访问以下地址检查当前服务实际使用的路径：
 
 ```text
 http://127.0.0.1:4173/api/health
@@ -181,6 +181,18 @@ http://127.0.0.1:4173/api/health
 │  ├─ index.html                    # 编辑器页面结构
 │  ├─ app.js                        # 编辑、联动、导出与模块布局逻辑
 │  └─ styles.css                    # 编辑器页面样式
+├─ A300_Usecase/
+│  ├─ imcoverridesettings(1).txt    # 默认 IMC 覆盖配置
+│  ├─ 3840x2176_30_ainr_yuvflow_eis_on_c10_sensormode42.sh
+│  │                                # 默认 Usecase 脚本
+│  ├─ imcmctfnnnoainrpipeline.svg   # 默认外部流程图
+│  ├─ imcmctfainrnnflowmappipeline2.svg
+│  │                                # 备用流程图
+│  ├─ 4k30_normal_example.svg       # 原始示例 SVG
+│  └─ 4k30_normal_example.drawio.svg
+│                                   # Draw.io 示例 SVG
+├─ calc_mctf_f2m_roi_n_modified.py  # F2M ROI 计算脚本
+├─ 2_Usecase.pdf                     # Usecase 参考文档
 ├─ server.py                        # 本地 HTTP API 与 F2M 脚本调用
 ├─ start-table-editor.cmd           # Windows 快速启动脚本
 └─ README.md
