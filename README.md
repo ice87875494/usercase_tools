@@ -132,7 +132,7 @@ d1: [0.0, 0.0, 1.0, 1.0]
 
 ## PNG 导出
 
-点击“导出图片”会生成 `4k30-normal-preview.png`。导出内容包括：
+点击“导出图片”会以当前页面标题生成 PNG 文件，并写入项目根目录的 `output/`。标题中的 Windows 非法字符会自动替换为下划线；同名标题再次导出时会覆盖同名文件。导出内容包括：
 
 - 页面标题和“4K30 配置总览”页眉。
 - 流程图、所有表格、当前 path/scale 灰显状态、黑色分叉点和流程模块删除线。
@@ -141,6 +141,10 @@ d1: [0.0, 0.0, 1.0, 1.0]
 - 灰显单元格和灰显流程分支的灰色样式。
 
 导出以 2 倍画布比例渲染。GDC0 scale ratio 与特定 F2M ROI 会按既定可读性规则自动换行；这些规则只影响导出布局，不会改写页面中的原始编辑值。
+
+## 日志
+
+服务访问、文件导入和图片导出事件会追加到 `log/table-editor.log`。每次 F2M 计算都会将完整命令、标准输出、标准错误和脚本输出另存为 `log/f2m-时间戳.log`。启动服务的标准输出和错误输出分别写入 `log/server.stdout.log` 与 `log/server.stderr.log`。
 
 ## 外部文件路径
 
@@ -170,6 +174,7 @@ http://127.0.0.1:4173/api/health
 | `GET` / `PUT` | `/api/pipeline-diagram-info` | 查询或保存外部流程图文件名 |
 | `GET` / `PUT` | `/api/pipeline-diagram.svg` | 读取或导入外部 SVG 流程图 |
 | `POST` | `/api/calc-f2m` | 运行 F2M 脚本并返回 ROI 与日志 |
+| `POST` | `/api/export-image` | 将页面导出的 PNG 写入 `output/` |
 
 服务会限制请求体大小、校验文件名不可包含路径分隔符或 Windows 非法字符，并在导入 SVG 时检查根元素是否为 `svg`。
 
@@ -195,6 +200,8 @@ http://127.0.0.1:4173/api/health
 │                                   # Draw.io 示例 SVG
 ├─ calc_mctf_f2m_roi_n_modified.py  # F2M ROI 计算脚本
 ├─ 2_Usecase.pdf                     # Usecase 参考文档
+├─ output/                            # 按标题保存的 PNG 导出文件
+├─ log/                               # 服务与 F2M 计算日志
 ├─ server.py                        # 本地 HTTP API 与 F2M 脚本调用
 ├─ start-table-editor.cmd           # Windows 快速启动脚本
 └─ README.md

@@ -25,7 +25,8 @@ if errorlevel 1 (
 )
 
 echo Starting Table Editor server...
-start "Table Editor Server" /min python "%~dp0server.py" --host 127.0.0.1 --port 4173
+if not exist "%~dp0log" mkdir "%~dp0log"
+start "Table Editor Server" /min cmd /c ""python" "%~dp0server.py" --host 127.0.0.1 --port 4173 1>>"%~dp0log\server.stdout.log" 2>>"%~dp0log\server.stderr.log""
 timeout /t 1 /nobreak >nul
 start "" "http://127.0.0.1:4173/table-editor/"
 exit /b 0

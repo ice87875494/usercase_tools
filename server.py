@@ -1,11 +1,13 @@
 import argparse
 import ast
+from datetime import datetime
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import xml.etree.ElementTree as ET
 from functools import partial
@@ -15,6 +17,8 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
+OUTPUT_DIR = ROOT / "output"
+LOG_DIR = ROOT / "log"
 A300_USECASE_ROOT = ROOT / "A300_Usecase"
 F2M_SCRIPT = ROOT / "calc_mctf_f2m_roi_n_modified.py"
 IMC_SETTINGS = Path(
@@ -41,6 +45,28 @@ EDITABLE_FILES = {
 }
 RESULT_PATTERN = re.compile(r"^(d1|d2|d4):\s*\[([^\]]+)\]\s*$", re.MULTILINE)
 INVALID_FILENAME_PATTERN = re.compile(r'[<>:"/\\|?*]')
+LOG_LOCK = threading.Lock()
+
+
+def log_event(event, **details):
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {"time": datetime.now().isoformat(timespec="seconds"), "event": event, **details}
+    with LOG_LOCK, (LOG_DIR / "table-editor.log").open("a", encoding="utf-8") as log_file:
+        log_file.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+def write_f2m_log(content):
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"f2m-{datetime.now():%Y%m%d-%H%M%S-%f}.log"
+    log_file = LOG_DIR / filename
+    log_file.write_text(content, encoding="utf-8")
+    return log_file
+
+
+def export_filename(title):
+    title = re.sub(r"[<>:\"/\\|?*\x00-\x1f]", "_", str(title or ""))
+    title = re.sub(r"\s+", " ", title).strip(" .")
+    return f"{(title or '4K30-configuration')[:160]}.png"
 
 
 def renamed_file(source_file, filename):
@@ -73,6 +99,7 @@ class AppHandler(SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         try:
             super().log_message(format, *args)
+            log_event("http_request", message=format % args)
         except (OSError, ValueError):
             # A detached Windows launcher may close its inherited stderr.
             pass
@@ -246,6 +273,30 @@ class AppHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         global F2M_SCRIPT
         request_path = urlparse(self.path).path
+        if request_path == "/api/export-image":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 50 * 1024 * 1024:
+                    raise ValueError("图片文件大小无效")
+                content = self.rfile.read(length)
+                if not content.startswith(b"\x89PNG\r\n\x1a\n"):
+                    raise ValueError("导出内容不是 PNG 图片")
+                OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+                target_file = OUTPUT_DIR / export_filename(self.headers.get("X-Export-Title"))
+                descriptor, temp_name = tempfile.mkstemp(prefix=f".{target_file.stem}.", suffix=".tmp", dir=OUTPUT_DIR)
+                os.close(descriptor)
+                temp_path = Path(temp_name)
+                temp_path.write_bytes(content)
+                os.replace(temp_path, target_file)
+            except (OSError, ValueError) as exc:
+                if "temp_path" in locals() and temp_path.exists():
+                    temp_path.unlink()
+                log_event("image_export_failed", error=str(exc))
+                self.send_json(400, {"error": str(exc) or "图片导出失败"})
+                return
+            log_event("image_exported", path=str(target_file), bytes=len(content))
+            self.send_json(200, {"name": target_file.name, "path": str(target_file)})
+            return
         if request_path == "/api/f2m-script/import":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -280,6 +331,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     output_file.write(content)
                 os.replace(temp_path, target_file)
                 F2M_SCRIPT = target_file
+                log_event("f2m_script_imported", path=str(F2M_SCRIPT), uploaded_name=uploaded_name)
                 self.send_json(
                     200,
                     {**file_payload(F2M_SCRIPT), "uploaded_name": uploaded_name},
@@ -387,9 +439,11 @@ class AppHandler(SimpleHTTPRequestHandler):
             if output_text.strip():
                 log_lines.extend(["", "[脚本输出文件]", output_text.strip()])
             run_log = "\n".join(log_lines)
+            log_file = write_f2m_log(run_log)
+            log_event("f2m_calculated", script=str(F2M_SCRIPT), exit_code=completed.returncode, log_file=str(log_file))
 
             if completed.returncode != 0:
-                self.send_json(500, {"error": "Python 脚本执行失败", "log": run_log})
+                self.send_json(500, {"error": "Python 脚本执行失败", "log": run_log, "log_file": str(log_file)})
                 return
 
             results = {}
@@ -398,14 +452,18 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if len(values) == 4:
                     results[name] = values
             if set(results) != {"d1", "d2", "d4"}:
-                self.send_json(500, {"error": "脚本输出缺少 d1/d2/d4 结果", "log": run_log})
+                self.send_json(500, {"error": "脚本输出缺少 d1/d2/d4 结果", "log": run_log, "log_file": str(log_file)})
                 return
 
-            self.send_json(200, {"results": results, "log": run_log})
+            self.send_json(200, {"results": results, "log": run_log, "log_file": str(log_file)})
         except subprocess.TimeoutExpired:
-            self.send_json(504, {"error": "Python 脚本运行超时"})
+            log_file = write_f2m_log("[iq-f2m] Python 脚本运行超时")
+            log_event("f2m_calculation_timeout", script=str(F2M_SCRIPT), log_file=str(log_file))
+            self.send_json(504, {"error": "Python 脚本运行超时", "log_file": str(log_file)})
         except Exception as exc:
-            self.send_json(500, {"error": f"运行脚本时发生错误：{exc}"})
+            log_file = write_f2m_log(f"[iq-f2m] 运行脚本时发生错误\n{exc}")
+            log_event("f2m_calculation_failed", script=str(F2M_SCRIPT), error=str(exc), log_file=str(log_file))
+            self.send_json(500, {"error": f"运行脚本时发生错误：{exc}", "log_file": str(log_file)})
         finally:
             if output_path:
                 try:

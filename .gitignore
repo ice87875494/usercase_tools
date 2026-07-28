@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *.log
+output/*.png
 tmp/
 .DS_Store
 Thumbs.db
