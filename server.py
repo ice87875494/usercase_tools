@@ -1,4 +1,5 @@
 import argparse
+import ast
 import json
 import os
 import re
@@ -101,6 +102,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "pipeline_diagram": str(PIPELINE_DIAGRAM),
                 },
             )
+            return
+        if request_path == "/api/f2m-script":
+            if not F2M_SCRIPT.is_file():
+                self.send_json(404, {"error": f"找不到计算脚本：{F2M_SCRIPT}"})
+                return
+            self.send_json(200, file_payload(F2M_SCRIPT))
             return
         if request_path == "/api/pipeline-diagram-info":
             if not PIPELINE_DIAGRAM.is_file():
@@ -237,7 +244,52 @@ class AppHandler(SimpleHTTPRequestHandler):
                 temp_path.unlink()
 
     def do_POST(self):
+        global F2M_SCRIPT
         request_path = urlparse(self.path).path
+        if request_path == "/api/f2m-script/import":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 2 * 1024 * 1024:
+                    raise ValueError("Python 脚本大小无效")
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                content = payload["content"]
+                if not isinstance(content, str) or not content.strip():
+                    raise ValueError("Python 脚本内容不能为空")
+                uploaded_name = payload["filename"]
+                target_file = renamed_file(F2M_SCRIPT, uploaded_name)
+                ast.parse(content, filename=uploaded_name)
+            except SyntaxError as exc:
+                self.send_json(
+                    400,
+                    {"error": f"Python 语法错误：第 {exc.lineno or '?'} 行，{exc.msg}"},
+                )
+                return
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                self.send_json(400, {"error": str(exc) or "Python 脚本无效"})
+                return
+
+            temp_path = None
+            try:
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                descriptor, temp_name = tempfile.mkstemp(
+                    prefix=f".{target_file.name}.", suffix=".tmp", dir=target_file.parent
+                )
+                os.close(descriptor)
+                temp_path = Path(temp_name)
+                with temp_path.open("w", encoding="utf-8", newline="\n") as output_file:
+                    output_file.write(content)
+                os.replace(temp_path, target_file)
+                F2M_SCRIPT = target_file
+                self.send_json(
+                    200,
+                    {**file_payload(F2M_SCRIPT), "uploaded_name": uploaded_name},
+                )
+            except OSError as exc:
+                self.send_json(500, {"error": f"导入 Python 脚本失败：{exc}"})
+            finally:
+                if temp_path and temp_path.exists():
+                    temp_path.unlink()
+            return
         if request_path.endswith("/import"):
             endpoint = request_path[: -len("/import")]
             source_file = EDITABLE_FILES.get(endpoint)
@@ -324,6 +376,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 f"width={width}, height={height}",
                 "",
                 "[iq-f2m] 执行 Python 脚本",
+                f"script={F2M_SCRIPT}",
                 subprocess.list2cmdline(command),
                 f"exit_code={completed.returncode}",
             ]

@@ -123,6 +123,8 @@ const toast = document.querySelector('#toast');
 const tableControls = document.querySelector('#tableControls');
 const f2mTriggerControl = document.querySelector('#f2mTriggerControl');
 const f2mTriggerDrag = document.querySelector('#f2mTriggerDrag');
+const f2mScriptImport = document.querySelector('#f2mScriptImport');
+const f2mScriptFileInput = document.querySelector('#f2mScriptFileInput');
 const f2mTrigger = document.querySelector('#f2mTrigger');
 const f2mLogDialog = document.querySelector('#f2mLogDialog');
 const f2mLog = document.querySelector('#f2mLog');
@@ -260,7 +262,16 @@ function formatF2mNumber(value) { const fixed=value.toFixed(12),[integer,fractio
 function formatF2mValues(values) { if(!Array.isArray(values)||values.length!==4||values.some(value=>!Number.isFinite(Number(value))))throw new Error('脚本返回的 ROI 格式无效');return `[${values.map(value=>formatF2mNumber(Number(value))).join(', ')}]`; }
 function applyF2mResults(results) { const rows=[[F2M_D1_KEY,results?.d1],[F2M_D2_KEY,results?.d2],[F2M_D4_KEY,results?.d4]];for(const [key,values] of rows)updateCell(findCell(key),formatF2mValues(values),false); }
 function openF2mLog(message) { f2mLog.textContent=message;if(!f2mLogDialog.open)f2mLogDialog.showModal(); }
-async function runF2mScript() { const dimensions=parseDimensions(findCell(V1_GDC0_D1_KEY)?.value);openF2mLog(dimensions?`准备运行...\nwidth=${dimensions.width}, height=${dimensions.height}`:'main-D1 V1-gdc0 分辨率无效');if(!dimensions){showToast('main-D1 V1-gdc0 分辨率无效');return;}f2mTrigger.disabled=true;f2mTrigger.setAttribute('aria-busy','true');try{const response=await fetch('/api/calc-f2m',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dimensions)}),payload=await response.json();f2mLog.textContent=payload.log||payload.error||'服务未返回运行日志';if(!response.ok)throw new Error(payload.error||'Python 脚本执行失败');applyF2mResults(payload.results);saveDraft();f2mLog.textContent+=`\n\n[iq-f2m] 回填完成\nd1: ${findCell(F2M_D1_KEY).value}\nd2: ${findCell(F2M_D2_KEY).value}\nd4: ${findCell(F2M_D4_KEY).value}`;showToast('iq-f2m配置已更新');}catch(error){f2mLog.textContent+=`\n\n[error] ${error.message}`;showToast('iq-f2m配置计算失败');}finally{f2mTrigger.disabled=false;f2mTrigger.removeAttribute('aria-busy');} }
+function setF2mScriptInfo(payload) { const name=payloadFileName(payload,'calc_mctf_f2m_roi_n_modified.py');f2mScriptImport.dataset.scriptName=name;f2mScriptImport.title=`导入 F2M Python 脚本（当前：${name}）`;f2mScriptImport.setAttribute('aria-label',`导入 F2M Python 脚本，当前脚本：${name}`); }
+async function loadF2mScriptInfo() { try{const response=await fetch('/api/f2m-script'),payload=await response.json();if(!response.ok)throw new Error(payload.error||'读取 F2M 脚本信息失败');setF2mScriptInfo(payload);}catch(error){f2mScriptImport.title=error.message;} }
+async function importF2mScript(file) {
+  if(!hasExpectedExtension(file,'.py')){showToast('请选择 .py 文件');return;}
+  f2mScriptImport.disabled=true;f2mScriptImport.setAttribute('aria-busy','true');f2mTrigger.disabled=true;
+  try{const content=await readImportedText(file),response=await fetch('/api/f2m-script/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,content})}),payload=await response.json();if(!response.ok)throw new Error(payload.error||'导入 Python 脚本失败');setF2mScriptInfo(payload);openF2mLog(`[iq-f2m] Python 脚本已导入\n上传文件：${payload.uploaded_name||file.name}\n执行脚本：${payload.path}`);showToast(`${file.name} 已导入，后续计算将使用该脚本`);}
+  catch(error){showToast(`导入失败：${error.message}`);}
+  finally{f2mScriptImport.disabled=false;f2mScriptImport.removeAttribute('aria-busy');f2mTrigger.disabled=false;}
+}
+async function runF2mScript() { const dimensions=parseDimensions(findCell(V1_GDC0_D1_KEY)?.value),scriptName=f2mScriptImport.dataset.scriptName||'calc_mctf_f2m_roi_n_modified.py';openF2mLog(dimensions?`准备运行...\nscript=${scriptName}\nwidth=${dimensions.width}, height=${dimensions.height}`:'main-D1 V1-gdc0 分辨率无效');if(!dimensions){showToast('main-D1 V1-gdc0 分辨率无效');return;}f2mTrigger.disabled=true;f2mTrigger.setAttribute('aria-busy','true');f2mScriptImport.disabled=true;try{const response=await fetch('/api/calc-f2m',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dimensions)}),payload=await response.json();f2mLog.textContent=payload.log||payload.error||'服务未返回运行日志';if(!response.ok)throw new Error(payload.error||'Python 脚本执行失败');applyF2mResults(payload.results);saveDraft();f2mLog.textContent+=`\n\n[iq-f2m] 回填完成\nd1: ${findCell(F2M_D1_KEY).value}\nd2: ${findCell(F2M_D2_KEY).value}\nd4: ${findCell(F2M_D4_KEY).value}`;showToast('iq-f2m配置已更新');}catch(error){f2mLog.textContent+=`\n\n[error] ${error.message}`;showToast('iq-f2m配置计算失败');}finally{f2mTrigger.disabled=false;f2mTrigger.removeAttribute('aria-busy');f2mScriptImport.disabled=false;} }
 function calculateResolutionRules(save=true) {
   const sensor=findCell(SENSOR_CELL_KEY),fpp=findCell(FPP_CELL_KEY),v2wr=findCell(V2_WR_D1_KEY),v1gdc0=findCell(V1_GDC0_D1_KEY);
   const sensorSize=validateSource(sensor);
@@ -390,7 +401,14 @@ function readF2mTriggerLayout() { try{return JSON.parse(localStorage.getItem(F2M
 function renderF2mTriggerLayout() { f2mTriggerControl.style.left=`${f2mTriggerLayout.x}px`;f2mTriggerControl.style.top=`${f2mTriggerLayout.y}px`; }
 function saveF2mTriggerLayout() { localStorage.setItem(F2M_TRIGGER_LAYOUT_KEY,JSON.stringify({x:f2mTriggerLayout.x,y:f2mTriggerLayout.y})); }
 function resetF2mTriggerLayout() { localStorage.removeItem(F2M_TRIGGER_LAYOUT_KEY);f2mTriggerLayout.x=f2mTriggerLayout.baseX;f2mTriggerLayout.y=f2mTriggerLayout.baseY;renderF2mTriggerLayout(); }
-function initializeF2mTrigger() { const saved=readF2mTriggerLayout();f2mTriggerLayout.x=Number.isFinite(saved.x)?saved.x:f2mTriggerLayout.baseX;f2mTriggerLayout.y=Number.isFinite(saved.y)?saved.y:f2mTriggerLayout.baseY;renderF2mTriggerLayout();f2mTriggerDrag.addEventListener('pointerdown',(event)=>{event.preventDefault();event.stopPropagation();activateFrame(null);closeMenu();const start={clientX:event.clientX,clientY:event.clientY,x:f2mTriggerLayout.x,y:f2mTriggerLayout.y};document.body.classList.add('layout-dragging');const move=(next)=>{f2mTriggerLayout.x=start.x+(next.clientX-start.clientX)/view.scale;f2mTriggerLayout.y=start.y+(next.clientY-start.clientY)/view.scale;renderF2mTriggerLayout();};const finish=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.body.classList.remove('layout-dragging');saveF2mTriggerLayout();};document.addEventListener('pointermove',move);document.addEventListener('pointerup',finish);});f2mTrigger.addEventListener('pointerdown',(event)=>event.stopPropagation());f2mTrigger.addEventListener('click',(event)=>{event.stopPropagation();activateFrame(null);closeMenu();runF2mScript();});f2mLogClose.addEventListener('click',()=>f2mLogDialog.close()); }
+function initializeF2mTrigger() {
+  const saved=readF2mTriggerLayout();f2mTriggerLayout.x=Number.isFinite(saved.x)?saved.x:f2mTriggerLayout.baseX;f2mTriggerLayout.y=Number.isFinite(saved.y)?saved.y:f2mTriggerLayout.baseY;renderF2mTriggerLayout();
+  f2mTriggerDrag.addEventListener('pointerdown',(event)=>{event.preventDefault();event.stopPropagation();activateFrame(null);closeMenu();const start={clientX:event.clientX,clientY:event.clientY,x:f2mTriggerLayout.x,y:f2mTriggerLayout.y};document.body.classList.add('layout-dragging');const move=(next)=>{f2mTriggerLayout.x=start.x+(next.clientX-start.clientX)/view.scale;f2mTriggerLayout.y=start.y+(next.clientY-start.clientY)/view.scale;renderF2mTriggerLayout();};const finish=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.body.classList.remove('layout-dragging');saveF2mTriggerLayout();};document.addEventListener('pointermove',move);document.addEventListener('pointerup',finish);});
+  for(const control of [f2mScriptImport,f2mTrigger])control.addEventListener('pointerdown',(event)=>event.stopPropagation());
+  f2mScriptImport.addEventListener('click',(event)=>{event.stopPropagation();activateFrame(null);closeMenu();f2mScriptFileInput.click();});
+  f2mScriptFileInput.addEventListener('change',()=>{const file=f2mScriptFileInput.files?.[0];f2mScriptFileInput.value='';if(file)importF2mScript(file);});
+  f2mTrigger.addEventListener('click',(event)=>{event.stopPropagation();activateFrame(null);closeMenu();runF2mScript();});f2mLogClose.addEventListener('click',()=>f2mLogDialog.close());loadF2mScriptInfo();
+}
 function readTextFileLayout(module) { try{return JSON.parse(localStorage.getItem(module.layoutKey))||{};}catch{return{};} }
 function renderTextFileLayout(module) { const layout=module.layout;module.panel.style.left=`${layout.x}px`;module.panel.style.top=`${layout.y}px`;module.panel.style.width=`${layout.width}px`;module.panel.style.height=`${layout.height}px`; }
 function saveTextFileLayout(module) { const layout=module.layout;localStorage.setItem(module.layoutKey,JSON.stringify({x:layout.x,y:layout.y,width:layout.width,height:layout.height})); }
@@ -486,7 +504,7 @@ function resetTable() { resetTitle();for(const cell of cells){ updateCell(cell,c
 function exportBounds() {
   const padding=20,items=[
     ...tableLayouts,
-    {x:f2mTriggerLayout.x,y:f2mTriggerLayout.y,width:190,height:34},
+    {x:f2mTriggerLayout.x,y:f2mTriggerLayout.y,width:224,height:34},
     ...textFileModules.map(module=>module.layout),
     pipelineImageModule.layout
   ];
@@ -522,7 +540,7 @@ function drawPipelineModule(context,module) {
   context.strokeStyle=module.dirty?'#d39a2c':'#9faab5';context.lineWidth=1;roundedRect(context,layout.x+.5,layout.y+.5,layout.width-1,layout.height-1);context.stroke();
 }
 function drawF2mModule(context) {
-  const {x,y}=f2mTriggerLayout;context.fillStyle='#e9eef2';context.fillRect(x+1,y+1,29,32);context.fillStyle='#2577b7';context.fillRect(x+30,y+1,159,32);context.fillStyle='#64717d';for(let row=0;row<2;row++)for(let column=0;column<3;column++){context.beginPath();context.arc(x+9+column*6,y+12+row*6,1.5,0,Math.PI*2);context.fill();}context.fillStyle='#fff';context.font='600 11px "Segoe UI","Microsoft YaHei",Arial,sans-serif';context.textAlign='center';context.fillText(f2mTrigger.textContent,x+109.5,y+22);context.textAlign='start';context.strokeStyle='#9faab5';roundedRect(context,x+.5,y+.5,189,33);context.stroke();
+  const {x,y}=f2mTriggerLayout;context.fillStyle='#e9eef2';context.fillRect(x+1,y+1,29,32);context.fillStyle='#f5f7f9';context.fillRect(x+30,y+1,34,32);context.fillStyle='#2577b7';context.fillRect(x+64,y+1,159,32);context.fillStyle='#64717d';for(let row=0;row<2;row++)for(let column=0;column<3;column++){context.beginPath();context.arc(x+9+column*6,y+12+row*6,1.5,0,Math.PI*2);context.fill();}context.strokeStyle='#64717d';context.lineWidth=1.5;context.beginPath();context.moveTo(x+41,y+22);context.lineTo(x+53,y+22);context.moveTo(x+47,y+9);context.lineTo(x+47,y+19);context.moveTo(x+43,y+13);context.lineTo(x+47,y+9);context.lineTo(x+51,y+13);context.stroke();context.fillStyle='#fff';context.font='600 11px "Segoe UI","Microsoft YaHei",Arial,sans-serif';context.textAlign='center';context.fillText(f2mTrigger.textContent,x+143.5,y+22);context.textAlign='start';context.strokeStyle='#9faab5';context.lineWidth=1;roundedRect(context,x+.5,y+.5,223,33);context.stroke();
 }
 async function renderExportCanvas() {
   document.body.classList.add('exporting');document.activeElement?.blur();const headerHeight=58,scale=2;
