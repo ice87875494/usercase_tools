@@ -20,7 +20,7 @@
 - Python 3，且 `python` 已加入 `PATH`
 - Chrome、Edge 等现代浏览器
 
-在仓库根目录双击 [start-table-editor.cmd](start-table-editor.cmd)。脚本会在 `127.0.0.1:4173` 启动服务，并打开：
+在仓库根目录双击 [start-table-editor.cmd](start-table-editor.cmd)。脚本会先结束旧的 Table Editor 服务进程，确认 `4173` 端口可用后重新启动服务，并打开：
 
 ```text
 http://127.0.0.1:4173/table-editor/
