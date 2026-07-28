@@ -44,7 +44,7 @@ python server.py --host 127.0.0.1 --port 4173
 - 表格单元格会自动保存到浏览器本地存储；刷新页面后会恢复。
 - `Tab` 和 `Shift+Tab` 可在可编辑表格单元格间前后切换。
 
-“复位”会恢复页面标题、表格值、流程模块文字/横线和各模块布局的默认状态，不会改写外部 TXT、SH 或 SVG 文件。
+“复位”会恢复本次页面加载完成时的标题、表格值、流程模块文字/横线和各模块布局，不会改写外部 TXT、SH 或 SVG 文件。
 
 ### 标题中的 Path/Scale 规则
 
@@ -68,6 +68,38 @@ python server.py --host 127.0.0.1 --port 4173
 省略某条 path 时，该 path 按未启用处理。未启用模块会灰显，关联连接线变为灰色虚线。流程图中的黑色圆点表示分叉交叉点；虚线从对应分叉点之后开始，分叉点之前的共用线路保持实线。
 
 旧标题中的 `Multi-scale` 或 `Mutil-scale` 会迁移为 `3scale`，旧的仅 `2path...` 标题会补齐同级的 `1path...` 标记。
+
+### `Normal` 示例公共链路
+
+```mermaid
+flowchart LR
+    sensor["Sensor RAW"] --> fpp["FPP"] --> scpp["SCPP"] --> vdpp["VDPP"] --> vepp["VEPP 分支"]
+```
+
+### `Ainr` 示例公共链路
+
+```mermaid
+flowchart LR
+    sensor["Sensor RAW"] --> fpp["FPP"] --> scpp["SCPP"] --> rawpp["RAWPP<br/>(AINR)"] --> vdpp["VDPP"] --> vepp["VEPP 分支"]
+```
+
+### `rmsc_off` 示例公共链路
+
+当标题包含 `rmsc_off` 时，公共链路采用以下 RMSC 结构；后续 VEPP 分支仍由标题中的 path/scale 规则控制。
+
+```mermaid
+flowchart LR
+    sensor["Sensor RAW<br/>quadbayer"]
+    fppMain["FPP"]
+    rawpp["RAWPP<br/>(RMSC)"]
+    vdpp["VDPP"]
+    veppMain["VEPPmain"]
+    fppRbin["FPP<br/>(rbin)"]
+    scpp["SCPP<br/>3ast only"]
+
+    sensor --> fppMain --> rawpp --> vdpp --> veppMain
+    sensor --> fppRbin --> scpp
+```
 
 ### 流程图模块
 
