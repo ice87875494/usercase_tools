@@ -16,7 +16,9 @@ button { font: inherit; }
 .icon-button:hover, .tool-button:hover { background: #f1f4f6; border-color: #bfc5cd; }
 .icon-button:focus-visible, .tool-button:focus-visible { outline: 2px solid #287ac1; outline-offset: 2px; }
 .icon-button:disabled { opacity: .38; cursor: default; }
-.title-highlight { color: #d60000; }
+.title-highlight { color: #d60000; font-weight: 700; }
+.title-mode-select { height: 20px; margin: 0 2px; padding: 0 16px 0 3px; border: 0; border-bottom: 1px solid #8f98a2; border-radius: 0; background: transparent; color: #26313a; font: inherit; font-weight: 650; vertical-align: baseline; cursor: pointer; }
+.title-mode-select:focus { outline: 2px solid #287ac1; outline-offset: 1px; }
 .icon-button[aria-pressed="true"] { border-color: #8ba8c0; background: #e8f0f6; color: #245d88; }
 .icon-button { width: 34px; padding: 0; font-size: 20px; line-height: 1; }
 .tool-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; font-size: 12px; }

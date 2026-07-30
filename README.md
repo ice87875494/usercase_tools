@@ -83,9 +83,9 @@ flowchart LR
     sensor["Sensor RAW"] --> fpp["FPP"] --> scpp["SCPP"] --> rawpp["RAWPP<br/>(AINR)"] --> vdpp["VDPP"] --> vepp["VEPP 分支"]
 ```
 
-### `rmsc_off` 示例公共链路
+### `rmsc` 示例公共链路
 
-当标题包含 `rmsc_off` 时，公共链路采用以下 RMSC 结构；后续 VEPP 分支仍由标题中的 path/scale 规则控制。
+当标题包含 `rmsc` 时，公共链路采用以下 RMSC 结构；后续 VEPP 分支仍由标题中的 path/scale 规则控制。
 
 ```mermaid
 flowchart LR
